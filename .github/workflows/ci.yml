@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both DB_CONNECTION targets this app actually supports in production
+        # (pgsql for compose.yaml/compose.prod.yaml, mysql for cPanel) run the
+        # full suite - this is what actually proves the driver-portability
+        # fixes in BadgeMetricResolver work, rather than just asserting it.
+        db: [pgsql, mysql]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: storyverse_testing
+          POSTGRES_USER: storyverse
+          POSTGRES_PASSWORD: secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U storyverse"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: storyverse_testing
+          MYSQL_USER: storyverse
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: secret
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -psecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql, pdo_mysql, mbstring, bcmath, gd, zip
+          coverage: none
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.json') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Set DB env for this matrix leg (pgsql)
+        if: matrix.db == 'pgsql'
+        run: |
+          echo "DB_CONNECTION=pgsql" >> "$GITHUB_ENV"
+          echo "DB_HOST=127.0.0.1" >> "$GITHUB_ENV"
+          echo "DB_PORT=5432" >> "$GITHUB_ENV"
+          echo "DB_DATABASE=storyverse_testing" >> "$GITHUB_ENV"
+          echo "DB_USERNAME=storyverse" >> "$GITHUB_ENV"
+          echo "DB_PASSWORD=secret" >> "$GITHUB_ENV"
+
+      - name: Set DB env for this matrix leg (mysql)
+        if: matrix.db == 'mysql'
+        run: |
+          echo "DB_CONNECTION=mysql" >> "$GITHUB_ENV"
+          echo "DB_HOST=127.0.0.1" >> "$GITHUB_ENV"
+          echo "DB_PORT=3306" >> "$GITHUB_ENV"
+          echo "DB_DATABASE=storyverse_testing" >> "$GITHUB_ENV"
+          echo "DB_USERNAME=root" >> "$GITHUB_ENV"
+          echo "DB_PASSWORD=secret" >> "$GITHUB_ENV"
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      - name: Run feature tests
+        run: php artisan test --colors=always
+
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8000/api/v1
+
+  # ============================================================================
+  # cPanel deploy - plain SSH/rsync, no Docker on the server at all. This is
+  # the primary/default deploy target. For a Docker-based cloud deploy instead,
+  # see deploy-docker-cloud.yml (manually triggered, not run on every push).
+  # ============================================================================
+  deploy-cpanel:
+    name: Deploy to cPanel
+    needs: [backend-tests, frontend-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm run build (frontend)
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+      # Backend: plain PHP files over SSH. composer install (with real
+      # dependencies) happens on the server, not here - see the finishing
+      # step below - since cPanel's PHP/extension set should be what composer
+      # resolves against, not this runner's.
+      - name: Upload backend source over SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          source: "backend/*,!backend/vendor,!backend/.env,!backend/node_modules"
+          target: ${{ secrets.CPANEL_BACKEND_PATH }}
+          strip_components: 1
+          overwrite: true
+
+      # Frontend: just the built static files (frontend/dist/*), uploaded
+      # straight to cPanel's document root for your domain/subdomain -
+      # no Node.js needs to run on the server at all.
+      - name: Upload built frontend over SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          source: "frontend/dist/*"
+          target: ${{ secrets.CPANEL_FRONTEND_PATH }}
+          strip_components: 2
+          overwrite: true
+
+      # No sudo/systemctl here - shared cPanel accounts don't have that access,
+      # and don't need it: QUEUE_CONNECTION=sync means there's no worker
+      # process to restart, and cPanel's own PHP handler picks up new files
+      # automatically. Cron (replacing compose.yaml's `scheduler` container)
+      # is set up once, by hand, in cPanel's "Cron Jobs" UI - see DEPLOYMENT.md.
+      - name: Finish deploy on the server
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          script: |
+            cd ${{ secrets.CPANEL_BACKEND_PATH }}
+            composer install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan storage:link || true

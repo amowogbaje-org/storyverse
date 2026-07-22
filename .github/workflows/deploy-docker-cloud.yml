@@ -1,0 +1,43 @@
+name: Deploy (Docker cloud)
+
+# Manual only - this is the alternate path for when you have a cloud VPS with
+# Docker installed, using compose.prod.yaml. It does not run on every push
+# like deploy-cpanel in ci.yml does, since cPanel is the primary target for now.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-docker-cloud:
+    runs-on: ubuntu-latest
+    environment: production-docker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ship the whole repo (compose.prod.yaml, backend/, frontend/) to the
+      # server, then build and start containers there - keeps the images
+      # built on the same architecture/OS they'll run on.
+      - name: Upload project over SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          port: ${{ secrets.CLOUD_SSH_PORT || 22 }}
+          source: ".,!.git,!backend/vendor,!frontend/node_modules,!frontend/dist"
+          target: ${{ secrets.CLOUD_APP_PATH }}
+          overwrite: true
+
+      - name: Build and restart containers
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          port: ${{ secrets.CLOUD_SSH_PORT || 22 }}
+          script: |
+            cd ${{ secrets.CLOUD_APP_PATH }}
+            docker compose -f compose.prod.yaml up -d --build
+            docker compose -f compose.prod.yaml exec -T backend php artisan migrate --force
+            docker compose -f compose.prod.yaml exec -T backend php artisan config:cache
+            docker compose -f compose.prod.yaml exec -T backend php artisan route:cache

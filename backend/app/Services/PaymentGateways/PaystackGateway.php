@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Services\PaymentGateways;
+
+use App\Contracts\PaymentGateway;
+use App\Models\SubscriptionPlan;
+use App\Models\User;
+use App\Support\CheckoutSession;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+
+class PaystackGateway implements PaymentGateway
+{
+    public function name(): string
+    {
+        return 'paystack';
+    }
+
+    public function createCheckoutSession(User $user, SubscriptionPlan $plan): CheckoutSession
+    {
+        $reference = 'sv_'.Str::uuid();
+
+        $response = Http::withToken(config('services.paystack.secret_key'))
+            ->post('https://api.paystack.co/transaction/initialize', [
+                'email' => $user->email,
+                'amount' => (int) round($plan->price * 100), // kobo/cents
+                'currency' => $plan->currency,
+                'reference' => $reference,
+                'callback_url' => config('app.frontend_url').'/subscription?status=success',
+                'metadata' => ['user_id' => $user->id, 'plan_id' => $plan->id],
+            ])
+            ->throw()
+            ->json();
+
+        return new CheckoutSession($response['data']['authorization_url'], $reference);
+    }
+
+    public function verifySignature(Request $request): bool
+    {
+        $secret = config('services.paystack.secret_key');
+        $signature = $request->header('x-paystack-signature');
+
+        if (! $secret || ! $signature) {
+            return false;
+        }
+
+        return hash_equals(hash_hmac('sha512', $request->getContent(), $secret), $signature);
+    }
+
+    public function extractSuccessfulReference(Request $request): ?string
+    {
+        $payload = $request->json()->all();
+
+        if (($payload['event'] ?? null) !== 'charge.success') {
+            return null;
+        }
+
+        return $payload['data']['reference'] ?? null;
+    }
+}

@@ -1,0 +1,72 @@
+# Production/cloud Docker deploy - the lean alternative to compose.yaml.
+# No Redis, no Meilisearch, no Selenium, no standing queue worker or scheduler
+# process: three services only. Images are built and run as-is (no source
+# bind-mounts), which also sidesteps an entire class of container permission
+# bug where a host bind-mount overwrites permissions baked into the image at
+# build time.
+#
+# Usage:
+#   cp backend/.env.cpanel.example backend/.env   # then edit it for your server
+#   docker compose -f compose.prod.yaml up -d --build
+#   docker compose -f compose.prod.yaml exec backend php artisan migrate --force
+#
+# Cron (replaces the `scheduler` service from compose.yaml) needs to be set up
+# on the host, pointing at the running container, e.g. in the host's crontab:
+#   * * * * * docker compose -f /path/to/compose.prod.yaml exec -T backend php artisan schedule:run >> /dev/null 2>&1
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        COMPOSER_ARGS: "--no-dev --no-interaction --no-progress --optimize-autoloader"
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Safe, dependency-free defaults for a single-server deploy. Override in
+      # backend/.env if you later add Redis for cache/session/queue.
+      - CACHE_STORE=file
+      - SESSION_DRIVER=file
+      - QUEUE_CONNECTION=sync
+    depends_on:
+      - db
+    networks:
+      - storyverse
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - storyverse
+
+  # Swap for a managed database (RDS, Supabase, PlanetScale, etc.) in real
+  # production and delete this service - a database container with a bind
+  # volume is a fine start, not a long-term production database story.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_DATABASE:-storyverse}
+      - POSTGRES_USER=${DB_USERNAME:-storyverse}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - storyverse
+
+networks:
+  storyverse:
+    driver: bridge
+
+volumes:
+  db_data:

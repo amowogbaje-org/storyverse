@@ -1,0 +1,16 @@
+vendor
+node_modules
+.env
+.env.*
+!.env.example
+!.env.cpanel.example
+.git
+.gitattributes
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+!storage/**/.gitkeep
+bootstrap/cache/*.php
+.phpunit.result.cache
+tests/coverage
