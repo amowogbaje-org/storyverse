@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     // Auth - all public
+    Route::get('/', function () {
+        return response()->json(['message' => 'Storyverse API v1']);
+    });
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/otp/request', [AuthController::class, 'requestOtp']);
