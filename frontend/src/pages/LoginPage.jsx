@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
+import PasswordInput from "../components/auth/PasswordInput";
+import GoogleButton from "../components/auth/GoogleButton";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -31,14 +33,27 @@ export default function LoginPage() {
       <h1 className="font-display text-2xl font-semibold text-ink-950">Welcome back</h1>
       <p className="mt-1 text-sm text-ink-500">Sign in to keep reading, liking, and bookmarking.</p>
 
-      <form onSubmit={submit} className="mt-6 space-y-3">
+      <div className="mt-6">
+        <GoogleButton onError={setError} label="signin_with" />
+      </div>
+
+      <div className="my-5 flex items-center gap-3 text-xs text-ink-500">
+        <span className="h-px flex-1 bg-ink-950/10" />
+        or sign in with email
+        <span className="h-px flex-1 bg-ink-950/10" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-3">
         <input
           type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email" className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
+          placeholder="Email" autoComplete="email"
+          className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
         />
-        <input
-          type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password" className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
+        <PasswordInput
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          autoComplete="current-password"
         />
         {error && <p className="text-sm text-ribbon-600">{error}</p>}
         <button

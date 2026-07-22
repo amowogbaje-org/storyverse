@@ -46,11 +46,32 @@ export function AuthProvider({ children }) {
       ...payload,
       browser_locale: browserLocale,
     });
+    // Registration no longer returns a token directly — the account is created
+    // unverified and an OTP is emailed. The caller (RegisterPage) is expected to
+    // show an OTP step and call verifyOtp() to actually get a session.
+    return data;
+  }
+
+  async function verifyOtp({ email, code }) {
+    const { data } = await api.post("/auth/otp/verify", { email, code });
     const token = data.data?.token ?? data.token;
     if (token) {
       setToken(token);
       await fetchMe();
     }
+    return data;
+  }
+
+  async function resendOtp({ email, purpose = "verify" }) {
+    const { data } = await api.post("/auth/otp/request", { email, purpose });
+    return data;
+  }
+
+  async function loginWithGoogle(credential) {
+    const { data } = await api.post("/auth/google", { credential });
+    const token = data.data?.token ?? data.token;
+    setToken(token);
+    await fetchMe();
     return data;
   }
 
@@ -71,6 +92,9 @@ export function AuthProvider({ children }) {
     loading,
     login,
     register,
+    verifyOtp,
+    resendOtp,
+    loginWithGoogle,
     logout,
     refresh: fetchMe,
   };

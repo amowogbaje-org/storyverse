@@ -19,6 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/otp/request', [AuthController::class, 'requestOtp']);
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
+    Route::post('/auth/google', [AuthController::class, 'googleAuth']);
 
     // Auth - required
     Route::middleware('jwt.auth')->group(function () {

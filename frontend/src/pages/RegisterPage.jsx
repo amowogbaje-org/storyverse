@@ -2,13 +2,18 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
+import PasswordInput from "../components/auth/PasswordInput";
+import OtpForm from "../components/auth/OtpForm";
+import GoogleButton from "../components/auth/GoogleButton";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", password_confirmation: "" });
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState(null);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -17,15 +22,43 @@ export default function RegisterPage() {
   async function submit(e) {
     e.preventDefault();
     setError(null);
+
+    if (form.password !== form.password_confirmation) {
+      setError("Passwords don't match.");
+      return;
+    }
+    if (!acceptTerms) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await register(form);
-      navigate("/");
+      const data = await register({ ...form, accept_terms: acceptTerms });
+      setPendingEmail(data.data?.email ?? form.email);
     } catch (err) {
-      setError(err.response?.data?.message || "Couldn't create your account. Please check your details.");
+      setError(err.response?.data?.error?.message || "Couldn't create your account. Please check your details.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleVerify(code) {
+    await verifyOtp({ email: pendingEmail, code });
+    navigate("/");
+  }
+
+  async function handleResend() {
+    await resendOtp({ email: pendingEmail, purpose: "verify" });
+  }
+
+  if (pendingEmail) {
+    return (
+      <Container className="max-w-sm py-14">
+        <h1 className="font-display text-2xl font-semibold text-ink-950">Verify your email</h1>
+        <OtpForm email={pendingEmail} onVerify={handleVerify} onResend={handleResend} submitLabel="Verify & continue" />
+      </Container>
+    );
   }
 
   return (
@@ -35,19 +68,60 @@ export default function RegisterPage() {
         Free — unlocks more free episodes on every story, likes, bookmarks, and comments.
       </p>
 
-      <form onSubmit={submit} className="mt-6 space-y-3">
+      <div className="mt-6">
+        <GoogleButton onError={setError} label="signup_with" />
+      </div>
+
+      <div className="my-5 flex items-center gap-3 text-xs text-ink-500">
+        <span className="h-px flex-1 bg-ink-950/10" />
+        or sign up with email
+        <span className="h-px flex-1 bg-ink-950/10" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-3">
         <input
           required value={form.name} onChange={(e) => update("name", e.target.value)}
-          placeholder="Display name" className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
+          placeholder="Display name" autoComplete="name"
+          className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
         />
         <input
           type="email" required value={form.email} onChange={(e) => update("email", e.target.value)}
-          placeholder="Email" className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
+          placeholder="Email" autoComplete="email"
+          className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
         />
-        <input
-          type="password" required value={form.password} onChange={(e) => update("password", e.target.value)}
-          placeholder="Password" className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
+        <PasswordInput
+          value={form.password}
+          onChange={(e) => update("password", e.target.value)}
+          placeholder="Password (min. 8 characters)"
+          autoComplete="new-password"
         />
+        <PasswordInput
+          value={form.password_confirmation}
+          onChange={(e) => update("password_confirmation", e.target.value)}
+          placeholder="Confirm password"
+          autoComplete="new-password"
+        />
+
+        <label className="flex items-start gap-2 text-xs text-ink-500">
+          <input
+            type="checkbox"
+            checked={acceptTerms}
+            onChange={(e) => setAcceptTerms(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            I agree to Storyverse's{" "}
+            <Link to="/terms" className="text-teal-700 hover:underline" target="_blank" rel="noopener noreferrer">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-teal-700 hover:underline" target="_blank" rel="noopener noreferrer">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+
         {error && <p className="text-sm text-ribbon-600">{error}</p>}
         <button
           type="submit" disabled={loading}

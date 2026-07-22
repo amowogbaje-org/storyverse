@@ -25,4 +25,10 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
     ],
+
+    'google' => [
+        // OAuth client ID for "Sign in with Google" (Google Identity Services).
+        // Must match the audience ("aud") claim on the ID token the frontend sends us.
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+    ],
 ];

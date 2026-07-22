@@ -100,6 +100,11 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000/api/v1
+      # Optional: set GOOGLE_CLIENT_ID in your shell env (or backend/.env, then
+      # `export $(grep GOOGLE_CLIENT_ID backend/.env)`) before `docker compose up`
+      # to enable the Google Sign-In button. Safe to leave unset - it just
+      # defaults to blank and the button stays hidden.
+      - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     depends_on:
       - backend
     networks:

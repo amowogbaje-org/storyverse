@@ -12,17 +12,18 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        "name", "email", "password", "phone", "country_code",
-        "currency", "avatar_url", "role",
+        "name", "email", "password", "phone", "country_code", "google_id",
+        "currency", "avatar_url", "role", "email_verified_at",
         "current_streak_days", "last_streak_date", "last_active_at",
     ];
 
-    protected $hidden = ["password"];
+    protected $hidden = ["password", "google_id"];
 
     protected $appends = ["display_name"];
 
     protected $casts = [
         "notification_preferences" => "array",
+        "email_verified_at" => "datetime",
     ];
 
     /**

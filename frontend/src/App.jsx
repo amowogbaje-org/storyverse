@@ -17,6 +17,8 @@ import LibraryPage from "./pages/LibraryPage";
 import BadgesPage from "./pages/BadgesPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SupportPage from "./pages/SupportPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -47,6 +49,8 @@ export default function App() {
           <Route path="/badges" element={<BadgesPage />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/support" element={<SupportPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />

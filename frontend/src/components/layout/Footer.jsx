@@ -9,6 +9,8 @@ export default function Footer() {
         <div className="flex gap-4">
           <Link to="/support" className="hover:text-ink-900">Support</Link>
           <Link to="/subscription" className="hover:text-ink-900">Premium</Link>
+          <Link to="/terms" className="hover:text-ink-900">Terms</Link>
+          <Link to="/privacy" className="hover:text-ink-900">Privacy</Link>
         </div>
       </Container>
     </footer>
