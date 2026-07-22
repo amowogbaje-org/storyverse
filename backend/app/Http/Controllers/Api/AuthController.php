@@ -60,7 +60,7 @@ class AuthController extends Controller
             'metadata' => ['country_code' => $geo['country_code']],
             'created_at' => now(),
         ]);
-        \App\Events\UserActivityLogged::dispatch($user->id, 'user_registered', ['country_code' => $geo['country_code']]);
+        \App\Events\UserActivityLogged::dispatchSync($user->id, 'user_registered', ['country_code' => $geo['country_code']]);
 
         // Account exists but stays unverified/token-less until the OTP we just sent
         // is confirmed via /auth/otp/verify - see verifyOtp() below.
@@ -193,7 +193,7 @@ class AuthController extends Controller
                 'metadata' => ['country_code' => $geo['country_code'], 'via' => 'google'],
                 'created_at' => now(),
             ]);
-            \App\Events\UserActivityLogged::dispatch($user->id, 'user_registered', ['country_code' => $geo['country_code'], 'via' => 'google']);
+            \App\Events\UserActivityLogged::dispatchSync($user->id, 'user_registered', ['country_code' => $geo['country_code'], 'via' => 'google']);
         }
 
         return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);

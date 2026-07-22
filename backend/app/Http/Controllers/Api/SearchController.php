@@ -44,7 +44,7 @@ class SearchController extends Controller
                 'metadata' => ['query' => $q, 'result_count' => $stories->count()],
                 'created_at' => now(),
             ]);
-            \App\Events\UserActivityLogged::dispatch($user->id, 'search_performed', ['query' => $q]);
+            \App\Events\UserActivityLogged::dispatchSync($user->id, 'search_performed', ['query' => $q]);
         }
 
         $progress = StoryCardPresenter::progressMap($user, $stories->pluck('id'));
@@ -67,7 +67,7 @@ class SearchController extends Controller
                 'metadata' => ['query' => $data['query']],
                 'created_at' => now(),
             ]);
-            \App\Events\UserActivityLogged::dispatch($user->id, 'ai_search_used', ['query' => $data['query']]);
+            \App\Events\UserActivityLogged::dispatchSync($user->id, 'ai_search_used', ['query' => $data['query']]);
         }
 
         $ai = $this->aiSearch->search($data['query']);

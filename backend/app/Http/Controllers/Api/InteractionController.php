@@ -180,6 +180,6 @@ class InteractionController extends Controller
             'created_at' => now(),
         ]);
 
-        \App\Events\UserActivityLogged::dispatch($userId, $eventType, $metadata);
+        \App\Events\UserActivityLogged::dispatchSync($userId, $eventType, $metadata);
     }
 }

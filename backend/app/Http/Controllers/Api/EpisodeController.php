@@ -34,7 +34,7 @@ class EpisodeController extends Controller
                 'metadata' => ['episode_id' => $episode->id, 'story_id' => $story->id],
                 'created_at' => now(),
             ]);
-            \App\Events\UserActivityLogged::dispatch($user->id, 'episode_opened', ['episode_id' => $episode->id, 'story_id' => $story->id]);
+            \App\Events\UserActivityLogged::dispatchSync($user->id, 'episode_opened', ['episode_id' => $episode->id, 'story_id' => $story->id]);
         }
 
         $progress = $user

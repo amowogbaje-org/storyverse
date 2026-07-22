@@ -52,7 +52,7 @@ class CommentController extends Controller
             'created_at' => now(),
         ]);
 
-        \App\Events\UserActivityLogged::dispatch($user->id, 'comment_posted', ['story_id' => $story->id, 'comment_id' => $comment->id]);
+        \App\Events\UserActivityLogged::dispatchSync($user->id, 'comment_posted', ['story_id' => $story->id, 'comment_id' => $comment->id]);
 
         return $this->ok($this->commentPayload($comment->load('user:id,name,avatar_url')), 201);
     }
