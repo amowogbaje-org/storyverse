@@ -10,6 +10,7 @@ use App\Services\JwtService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -36,8 +37,11 @@ class AuthController extends Controller
         ]);
 
         // Respect an explicit country_code from the form (possibly user-overridden);
-        // only fall back to detection if the client didn't send one.
-        $geo = $data['country_code']
+        // only fall back to detection if the client didn't send one. Note: a
+        // 'nullable' field that's simply absent from the request is omitted from
+        // $data entirely (not present as null), so this must use ?? rather than
+        // assuming the key exists.
+        $geo = ($data['country_code'] ?? null)
             ? ['country_code' => $data['country_code'], 'currency' => null]
             : $this->geo->detect($request);
 
@@ -97,8 +101,10 @@ class AuthController extends Controller
             $this->issueOtp($data['email'], $data['purpose'] ?? 'verify');
         } else {
             // TODO: wire up Termii (or another SMS provider) for phone-based OTP delivery.
+            // Until then this behaves like local-env email: the code only goes to the log.
             $code = (string) random_int(100000, 999999);
             cache()->put('otp:' . $data['phone'], Hash::make($code), now()->addMinutes(10));
+            $this->logOtpForLocalDebugging($data['phone'], $code);
         }
 
         return $this->ok(['message' => 'OTP sent.']);
@@ -203,8 +209,26 @@ class AuthController extends Controller
         $code = (string) random_int(100000, 999999);
 
         cache()->put('otp:' . $email, Hash::make($code), now()->addMinutes(10));
-        Log::info('OTP issued for ' . $email . ' (' . $purpose . '): ' . $code);
+
         Notification::route('mail', $email)->notify(new OtpCodeNotification($code, $purpose));
+
+        $this->logOtpForLocalDebugging($email, $code);
+    }
+
+    /**
+     * Mailpit (our local SMTP catcher) never reaches a real inbox - it only shows up
+     * in its own web UI at http://localhost:8025, which is easy to miss. This also
+     * covers the phone/SMS path, which has no real provider wired up yet at all.
+     * So in local/debug envs we mirror the code into the Laravel log as a convenient
+     * fallback. Never runs in production (config('app.debug') is false there).
+     */
+    private function logOtpForLocalDebugging(string $identifier, string $code): void
+    {
+        if (! config('app.debug')) {
+            return;
+        }
+
+        Log::info("[OTP] Code for {$identifier}: {$code} (also sent via Mailpit - check http://localhost:8025)");
     }
 
     /**
