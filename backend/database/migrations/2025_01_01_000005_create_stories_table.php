@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create("stories", function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->id();
             $table->foreignId("pen_name_id")->constrained()->cascadeOnDelete();
             $table->foreignId("category_id")->constrained();

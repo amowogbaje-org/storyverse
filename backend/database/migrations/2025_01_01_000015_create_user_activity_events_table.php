@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create("user_activity_events", function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->id();
             $table->foreignId("user_id")->constrained()->cascadeOnDelete();
             $table->string("event_type");

@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create("subscription_plans", function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->id();
             $table->string("name");
             $table->string("country_code", 2);
