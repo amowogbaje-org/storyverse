@@ -203,7 +203,7 @@ class AuthController extends Controller
         $code = (string) random_int(100000, 999999);
 
         cache()->put('otp:' . $email, Hash::make($code), now()->addMinutes(10));
-
+        Log::info('OTP issued for ' . $email . ' (' . $purpose . '): ' . $code);
         Notification::route('mail', $email)->notify(new OtpCodeNotification($code, $purpose));
     }
 
