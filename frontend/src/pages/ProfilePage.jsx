@@ -79,7 +79,7 @@ export default function ProfilePage() {
         </button>
       </form>
 
-      {user.role === "reader" && (
+      {/* {user.role === "reader" && (
         <div className="mt-6 rounded-card border border-gold-500/40 bg-gold-400/10 p-4">
           <p className="text-sm font-medium text-ink-950">Want to publish your own stories?</p>
           <p className="mt-1 text-xs text-ink-600">
@@ -93,7 +93,7 @@ export default function ProfilePage() {
             {becomingAuthor ? "Switching…" : "Become an author"}
           </button>
         </div>
-      )}
+      )} */}
     </Container>
   );
 }
