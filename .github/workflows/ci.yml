@@ -34,7 +34,7 @@ jobs:
           npm install
           npm run build
         env:
-          VITE_API_URL: ${{ vars.BACKEND_URL }}/api/v1
+          VITE_API_URL: https://${{ vars.BACKEND_URL }}/api/v1
 
       - name: Deploy backend via rsync
         env:
