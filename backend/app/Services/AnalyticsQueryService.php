@@ -63,6 +63,17 @@ class AnalyticsQueryService
         ];
     }
 
+    /**
+     * Same counts as the dashboard's last_7_days/last_30_days blocks, just for
+     * "since this time yesterday" - what the daily analytics summary email uses.
+     *
+     * @return array<string,int>
+     */
+    public function last24Hours(): array
+    {
+        return $this->windowCounts(now()->subDay());
+    }
+
     /** @return array<string,int> */
     private function windowCounts(\Carbon\Carbon $since): array
     {

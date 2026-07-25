@@ -31,4 +31,10 @@ return [
         // Must match the audience ("aud") claim on the ID token the frontend sends us.
         'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
+
+    'analytics' => [
+        // Comma-separated extra recipients for the daily analytics summary email
+        // (app:send-analytics-summary), on top of every role=admin user.
+        'summary_emails' => env('ANALYTICS_SUMMARY_EMAILS', ''),
+    ],
 ];

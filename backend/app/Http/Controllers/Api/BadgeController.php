@@ -34,6 +34,7 @@ class BadgeController extends Controller
         $user = $this->requireUser($request);
 
         $badges = $user->badges()->with('badge')->get()->map(fn ($ub) => [
+            'id' => $ub->badge->id,
             'name' => $ub->badge->name,
             'tier' => $ub->badge->tier,
             'icon_url' => $ub->badge->icon_url,

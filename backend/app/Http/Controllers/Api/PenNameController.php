@@ -32,8 +32,11 @@ class PenNameController extends Controller
             ->orderByDesc('published_at')
             ->cursorPaginate(20);
 
-        $progress = \App\Support\StoryCardPresenter::progressMap($user, collect($paginator->items())->pluck('id'));
+        $ids = collect($paginator->items())->pluck('id');
+        $progress = \App\Support\StoryCardPresenter::progressMap($user, $ids);
+        $liked = \App\Support\StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = \App\Support\StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->paginated($paginator, fn ($story) => \App\Support\StoryCardPresenter::card($story, $user, $progress));
+        return $this->paginated($paginator, fn ($story) => \App\Support\StoryCardPresenter::card($story, $user, $progress, $liked, $bookmarked));
     }
 }

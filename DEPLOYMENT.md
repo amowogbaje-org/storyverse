@@ -74,6 +74,36 @@ means zero background processes to babysit. If you outgrow this, cPanel's cron
 can also run `php artisan queue:work --stop-when-empty` every minute as a
 poor-man's worker, without needing shell/systemd access.
 
+## Caching (homepage lists + episode previews)
+
+Two things are cached to keep the highest-traffic pages fast:
+
+- **Homepage lists** (`/stories/new-releases`, `/stories/popular`) - the shared
+  story data (titles, covers, counts) for 5 minutes. See `App\Support\HomeCache`.
+- **Episodes 1-2 of every story** - the platform-wide free preview every reader
+  can always open, so the same content goes out to everyone. Cached for 30
+  minutes. See `EpisodeController::loadEpisodePayload()`/`forgetPreviewCache()`.
+
+Both are busted immediately on the actions that matter (publish/unpublish/edit
+a story, edit/publish/delete an episode) rather than waiting out the TTL - see
+the `HomeCache::forgetHomepage()` / `EpisodeController::forgetPreviewCache()`
+calls in the admin controllers.
+
+Per-user data (whether *you* liked/bookmarked a story, your reading progress)
+is never part of the cached payload - it's looked up fresh on every request and
+merged in afterward, so cached results can't leak one reader's state to another.
+
+This all goes through Laravel's plain `Cache` facade - no redis-only features
+like tags - so it works unchanged on both targets:
+
+- **Docker/cloud** (`CACHE_STORE=redis`): shared across all backend/queue/
+  scheduler containers, survives container restarts.
+- **cPanel** (`CACHE_STORE=file`): per-server filesystem cache under
+  `storage/framework/cache/data`. Works fine for a single-server deploy; if you
+  ever scale to multiple app servers on the same account without redis, switch
+  to `CACHE_STORE=database` (add a `cache` table via `php artisan cache:table`)
+  so all servers share one cache instead of each having its own.
+
 ## If something doesn't boot
 
 - **500 error, blank page**: check `storage/logs/laravel.log` first. Almost
@@ -82,6 +112,12 @@ poor-man's worker, without needing shell/systemd access.
 - **"could not find driver" on DB connection**: your cPanel PHP version's
   `pdo_mysql` extension isn't enabled - cPanel → MultiPHP INI Editor → enable it,
   or ask your host.
+- **Cover image upload fails on a file under 8MB**: shared hosting's default
+  `upload_max_filesize`/`post_max_size` (often 2M/8M) can reject it before
+  Laravel ever sees it. cPanel → MultiPHP INI Editor → raise both to at least
+  `10M`/`12M`. Also confirm the `gd` PHP extension is enabled there - it's what
+  `ImageOptimizerService` resizes/compresses the upload with, and it's on by
+  default on almost every host, but worth checking if uploads 500.
 - **Frontend loads but every route except `/` 404s**: shouldn't happen -
   `frontend/public/.htaccess` (auto-copied into every `npm run build` output by
   Vite) already handles the client-side-routing rewrite. If it's still

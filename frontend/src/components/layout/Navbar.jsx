@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import Container from "../common/Container";
 
 export default function Navbar() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [q, setQ] = useState("");
   const navigate = useNavigate();
@@ -38,7 +38,9 @@ export default function Navbar() {
         </form>
 
         <div className="relative ml-auto sm:ml-0">
-          {isAuthenticated ? (
+          {loading ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-ink-950/10 sm:w-24" aria-hidden="true" />
+          ) : isAuthenticated ? (
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="flex items-center gap-2 rounded-full border border-ink-950/10 bg-white/60 py-1 pl-1 pr-3"

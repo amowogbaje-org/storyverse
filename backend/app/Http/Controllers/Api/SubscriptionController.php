@@ -23,7 +23,17 @@ class SubscriptionController extends Controller
         $user = $this->currentUser($request);
         $countryCode = $user?->country_code ?? $request->query('country_code', 'US');
 
-        $plan = SubscriptionPlan::where('country_code', $countryCode)
+        // A user can set `currency` on their profile independently of country_code
+        // (e.g. they travel, or just prefer a different display currency). Honor
+        // that explicit choice first - it's what checkout should charge in - and
+        // only fall back to the country-derived plan if they haven't set one.
+        $plan = null;
+
+        if ($user?->currency) {
+            $plan = SubscriptionPlan::where('currency', $user->currency)->where('is_active', true)->first();
+        }
+
+        $plan ??= SubscriptionPlan::where('country_code', $countryCode)
             ->where('is_active', true)
             ->first()
             ?? SubscriptionPlan::where('country_code', 'US')->where('is_active', true)->first();

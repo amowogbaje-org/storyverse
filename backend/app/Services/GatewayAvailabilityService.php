@@ -12,13 +12,17 @@ class GatewayAvailabilityService
     {
         $gateways = ['flutterwave']; // always available, always primary/default
 
-        if (in_array($countryCode, $this->paystackCountries, true)) {
-            $gateways[] = 'paystack';
-        }
-
-        if (in_array($countryCode, $this->stripeCountries, true)) {
-            $gateways[] = 'stripe';
-        }
+        // Single-provider phase: Paystack/Stripe are commented out here to match
+        // PaymentServiceProvider (which no longer registers them), so the
+        // frontend never shows a picker with options that would fail at
+        // checkout. Uncomment both blocks together to bring a provider back.
+        // if (in_array($countryCode, $this->paystackCountries, true)) {
+        //     $gateways[] = 'paystack';
+        // }
+        //
+        // if (in_array($countryCode, $this->stripeCountries, true)) {
+        //     $gateways[] = 'stripe';
+        // }
 
         return $gateways;
     }

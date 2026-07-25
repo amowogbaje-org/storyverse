@@ -7,8 +7,10 @@ use App\Models\ReadingProgress;
 use App\Models\Story;
 use App\Models\StoryView;
 use App\Services\StoryAccessService;
+use App\Support\HomeCache;
 use App\Support\StoryCardPresenter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class StoryController extends Controller
 {
@@ -43,37 +45,51 @@ class StoryController extends Controller
 
         $user = $this->currentUser($request);
         $paginator = $query->cursorPaginate(20);
-        $progress = StoryCardPresenter::progressMap($user, collect($paginator->items())->pluck('id'));
+        $ids = collect($paginator->items())->pluck('id');
+        $progress = StoryCardPresenter::progressMap($user, $ids);
+        $liked = StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->paginated($paginator, fn (Story $story) => StoryCardPresenter::card($story, $user, $progress));
+        return $this->paginated($paginator, fn (Story $story) => StoryCardPresenter::card($story, $user, $progress, $liked, $bookmarked));
     }
 
     public function newReleases(Request $request)
     {
-        $stories = Story::where('status', 'published')
+        // The story list itself (titles, covers, counts as of the last cache
+        // refresh) is identical for every visitor, so it's the part worth
+        // caching for a faster homepage. See HomeCache's docblock for why the
+        // per-user like/bookmark/progress overlay is deliberately kept outside
+        // the cached payload and applied fresh below.
+        $stories = HomeCache::remember(HomeCache::NEW_RELEASES_KEY, fn () => Story::where('status', 'published')
             ->orderByDesc('published_at')
             ->with(['penName', 'category'])
             ->limit(10)
-            ->get();
+            ->get());
 
         $user = $this->currentUser($request);
-        $progress = StoryCardPresenter::progressMap($user, $stories->pluck('id'));
+        $ids = $stories->pluck('id');
+        $progress = StoryCardPresenter::progressMap($user, $ids);
+        $liked = StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->ok($stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress)));
+        return $this->ok($stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked)));
     }
 
     public function popular(Request $request)
     {
-        $stories = Story::where('status', 'published')
+        $stories = HomeCache::remember(HomeCache::POPULAR_KEY, fn () => Story::where('status', 'published')
             ->orderByDesc('views_count')
             ->with(['penName', 'category'])
             ->limit(10)
-            ->get();
+            ->get());
 
         $user = $this->currentUser($request);
-        $progress = StoryCardPresenter::progressMap($user, $stories->pluck('id'));
+        $ids = $stories->pluck('id');
+        $progress = StoryCardPresenter::progressMap($user, $ids);
+        $liked = StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->ok($stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress)));
+        return $this->ok($stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked)));
     }
 
     public function show(Request $request, string $slug)
@@ -85,16 +101,17 @@ class StoryController extends Controller
 
         $user = $this->currentUser($request);
 
-        // Analytics: every story-detail hit is a "read" of the story page itself.
-        // Kept as a raw insert + increment (not the heavier UserActivityEvent pipeline)
-        // since this fires on every guest pageview too.
-        StoryView::create([
-            'user_id' => $user?->id,
-            'story_id' => $story->id,
-            'session_hash' => $this->sessionHash($request),
-            'viewed_at' => now(),
-        ]);
-        $story->increment('views_count');
+        // A view only counts once per visitor per hour, not on every reload/
+        // re-render - see shouldCountView() below for why and how.
+        if ($this->shouldCountView($request, $story, $user)) {
+            StoryView::create([
+                'user_id' => $user?->id,
+                'story_id' => $story->id,
+                'session_hash' => $this->sessionHash($request),
+                'viewed_at' => now(),
+            ]);
+            $story->increment('views_count');
+        }
 
         $limit = $this->access->accessibleEpisodeLimit($story, $user);
 
@@ -118,11 +135,54 @@ class StoryController extends Controller
         });
 
         $progress = StoryCardPresenter::progressMap($user, collect([$story->id]));
+        $liked = StoryCardPresenter::likedMap($user, collect([$story->id]));
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, collect([$story->id]));
 
         return $this->ok([
-            ...StoryCardPresenter::card($story, $user, $progress),
+            ...StoryCardPresenter::card($story, $user, $progress, $liked, $bookmarked),
             'genres' => $story->genres->map(fn ($g) => ['slug' => $g->slug, 'name' => $g->name]),
             'episodes' => $episodes,
         ]);
+    }
+
+    /**
+     * A "view" only counts once per visitor per story per hour, not on every
+     * page load/reload/re-render - refreshing the tab five times isn't five
+     * reads. Visitor = the logged-in user's id, or (for guests) the same
+     * per-browser session id already used for StoryView.session_hash - stable
+     * across reloads for one visitor, unlike IP+UA which can collide (shared
+     * office/mobile networks) or split (VPN, IP rotation).
+     *
+     * This alone gets you ~95% of what a Redis "seen" key + TTL buys you,
+     * using the same portable Cache facade the rest of the app's caching goes
+     * through (see HomeCache/EpisodeController) - identical behavior whether
+     * CACHE_STORE is redis (Docker/cloud) or file/database (cPanel).
+     *
+     * Deliberately NOT also batching the DB write itself (accumulate a
+     * counter in cache, flush to the `stories` row once a minute via a
+     * scheduled job): dedup already cuts writes from "every reload" down to
+     * "at most once per visitor per story per hour", which is the actual fix
+     * for the reported problem, and it's a single indexed UPDATE + one INSERT
+     * per unique view - trivial for Postgres/MySQL at this traffic level.
+     * Batching on top would mainly help if writes became the bottleneck at
+     * much higher scale, but it trades that for real complexity: an
+     * "increment counter, then atomically read-and-reset it" step, which
+     * Redis does natively (INCR + GETSET) but file/database cache stores
+     * can't guarantee atomically - a flush racing a concurrent increment can
+     * lose counts. Worth revisiting if `stories` writes ever show up as a
+     * real bottleneck, but not before.
+     */
+    private function shouldCountView(Request $request, Story $story, ?\App\Models\User $user): bool
+    {
+        $visitor = $user ? "user:{$user->id}" : 'guest:'.$this->sessionHash($request);
+        $key = "story-view-seen:{$story->id}:{$visitor}";
+
+        if (Cache::has($key)) {
+            return false;
+        }
+
+        Cache::put($key, true, now()->addHour());
+
+        return true;
     }
 }

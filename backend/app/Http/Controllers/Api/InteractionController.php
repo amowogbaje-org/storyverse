@@ -78,9 +78,12 @@ class InteractionController extends Controller
             ->with(['penName', 'category'])
             ->cursorPaginate(20);
 
-        $progress = \App\Support\StoryCardPresenter::progressMap($user, collect($paginator->items())->pluck('id'));
+        $ids = collect($paginator->items())->pluck('id');
+        $progress = \App\Support\StoryCardPresenter::progressMap($user, $ids);
+        $liked = \App\Support\StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = \App\Support\StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->paginated($paginator, fn (Story $s) => \App\Support\StoryCardPresenter::card($s, $user, $progress));
+        return $this->paginated($paginator, fn (Story $s) => \App\Support\StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked));
     }
 
     public function myLibrary(Request $request)
@@ -92,9 +95,12 @@ class InteractionController extends Controller
             ->pluck('story_id');
 
         $stories = Story::whereIn('id', $storyIds)->with(['penName', 'category'])->get();
-        $progress = \App\Support\StoryCardPresenter::progressMap($user, $stories->pluck('id'));
+        $ids = $stories->pluck('id');
+        $progress = \App\Support\StoryCardPresenter::progressMap($user, $ids);
+        $liked = \App\Support\StoryCardPresenter::likedMap($user, $ids);
+        $bookmarked = \App\Support\StoryCardPresenter::bookmarkedMap($user, $ids);
 
-        return $this->ok($stories->map(fn (Story $s) => \App\Support\StoryCardPresenter::card($s, $user, $progress)));
+        return $this->ok($stories->map(fn (Story $s) => \App\Support\StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked)));
     }
 
     public function updateProgress(Request $request, string $slug, int $episodeNumber)
@@ -111,17 +117,29 @@ class InteractionController extends Controller
             'percent' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
+        $existing = $episode->readingProgress()->where('user_id', $user->id)->first();
+
+        // The reader page can fire several progress updates in quick succession
+        // (one per scroll tick); network timing gives no guarantee they arrive in
+        // order. Without this guard, a slow in-flight request for an earlier
+        // (lower) percent can land after a later 100% one and silently overwrite
+        // it - completed_at gets cleared and the episode looks "not started"
+        // again even though the user finished it. So: percent only ever goes up,
+        // and once completed, completed_at is never unset by a later update.
+        $newPercent = $existing ? max($existing->progress_percent, $data['percent']) : $data['percent'];
+        $isNowComplete = $newPercent >= 100 || $existing?->completed_at;
+
         $progress = $episode->readingProgress()->updateOrCreate(
             ['user_id' => $user->id],
             [
                 'story_id' => $episode->story_id,
-                'progress_percent' => $data['percent'],
+                'progress_percent' => $newPercent,
                 'last_read_at' => now(),
-                'completed_at' => $data['percent'] >= 100 ? now() : null,
+                'completed_at' => $isNowComplete ? ($existing?->completed_at ?? now()) : null,
             ]
         );
 
-        if ($data['percent'] >= 100) {
+        if ($newPercent >= 100 && ! $existing?->completed_at) {
             $this->logActivity($user->id, 'episode_completed', ['episode_id' => $episode->id, 'story_id' => $episode->story_id]);
             $this->checkStoryCompletion($user->id, $episode->story_id);
         }
@@ -163,12 +181,28 @@ class InteractionController extends Controller
 
     private function storyProgressPercent(int $userId, int $storyId): ?float
     {
-        $avg = DB::table('reading_progress')
+        $story = \App\Models\Story::with('publishedEpisodes')->find($storyId);
+        $episodeCount = $story?->publishedEpisodes->count() ?? 0;
+
+        if ($episodeCount === 0) {
+            return null;
+        }
+
+        // Sum progress across every touched episode, but divide by the total
+        // number of published episodes - not just the ones with a row - so an
+        // untouched episode correctly counts as 0% rather than being excluded
+        // from the average entirely (which previously overstated completion,
+        // e.g. 1 of 5 episodes finished showed as 100% instead of 20%).
+        $sum = DB::table('reading_progress')
             ->where('user_id', $userId)
             ->where('story_id', $storyId)
-            ->avg('progress_percent');
+            ->sum('progress_percent');
 
-        return $avg !== null ? round($avg) : null;
+        if ($sum == 0) {
+            return null;
+        }
+
+        return round($sum / $episodeCount);
     }
 
     private function logActivity(int $userId, string $eventType, array $metadata = []): void

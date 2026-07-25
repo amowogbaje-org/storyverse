@@ -4,15 +4,18 @@ import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
 import PasswordInput from "../components/auth/PasswordInput";
 import GoogleButton from "../components/auth/GoogleButton";
+import OtpForm from "../components/auth/OtpForm";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState(null);
+  const [retryAfter, setRetryAfter] = useState(60);
 
   async function submit(e) {
     e.preventDefault();
@@ -22,10 +25,44 @@ export default function LoginPage() {
       await login(email, password);
       navigate(params.get("next") || "/");
     } catch (err) {
-      setError(err.response?.data?.message || "Couldn't sign you in. Check your details and try again.");
+      const code = err.response?.data?.error?.code;
+      if (code === "email_not_verified") {
+        // Correct credentials, but never verified. Don't leave them stuck on a
+        // generic error - a fresh code was already sent, so send them straight
+        // into the OTP step with an accurate countdown.
+        setRetryAfter(err.response?.data?.retry_after ?? 60);
+        setPendingEmail(err.response?.data?.email ?? email);
+        return;
+      }
+      setError(err.response?.data?.error?.message || "Couldn't sign you in. Check your details and try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleVerify(code) {
+    const data = await verifyOtp({ email: pendingEmail, code });
+    navigate(params.get("next") || "/", data.data?.newly_verified ? { state: { welcome: true } } : undefined);
+  }
+
+  async function handleResend() {
+    return resendOtp({ email: pendingEmail, purpose: "verify" });
+  }
+
+  if (pendingEmail) {
+    return (
+      <Container className="max-w-sm py-14">
+        <h1 className="font-display text-2xl font-semibold text-ink-950">Verify your email</h1>
+        <p className="mt-1 text-sm text-ink-500">Please verify your email before signing in.</p>
+        <OtpForm
+          email={pendingEmail}
+          onVerify={handleVerify}
+          onResend={handleResend}
+          submitLabel="Verify & sign in"
+          initialRetryAfter={retryAfter}
+        />
+      </Container>
+    );
   }
 
   return (

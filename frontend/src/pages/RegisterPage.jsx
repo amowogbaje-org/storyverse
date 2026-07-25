@@ -14,6 +14,8 @@ export default function RegisterPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
+  const [retryAfter, setRetryAfter] = useState(60);
+  const [notice, setNotice] = useState(null);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -22,6 +24,7 @@ export default function RegisterPage() {
   async function submit(e) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
     if (form.password !== form.password_confirmation) {
       setError("Passwords don't match.");
@@ -35,6 +38,12 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const data = await register({ ...form, accept_terms: acceptTerms });
+      if (data.data?.already_registered) {
+        // Not silently failing and not a duplicate account - say plainly what
+        // happened and drop them straight into the OTP step with a fresh code.
+        setNotice("You've already signed up with this email but haven't verified it yet. We've sent a new code.");
+      }
+      setRetryAfter(data.data?.retry_after ?? 60);
       setPendingEmail(data.data?.email ?? form.email);
     } catch (err) {
       setError(err.response?.data?.error?.message || "Couldn't create your account. Please check your details.");
@@ -44,19 +53,26 @@ export default function RegisterPage() {
   }
 
   async function handleVerify(code) {
-    await verifyOtp({ email: pendingEmail, code });
-    navigate("/");
+    const data = await verifyOtp({ email: pendingEmail, code });
+    navigate("/", data.data?.newly_verified ? { state: { welcome: true } } : undefined);
   }
 
   async function handleResend() {
-    await resendOtp({ email: pendingEmail, purpose: "verify" });
+    return resendOtp({ email: pendingEmail, purpose: "verify" });
   }
 
   if (pendingEmail) {
     return (
       <Container className="max-w-sm py-14">
         <h1 className="font-display text-2xl font-semibold text-ink-950">Verify your email</h1>
-        <OtpForm email={pendingEmail} onVerify={handleVerify} onResend={handleResend} submitLabel="Verify & continue" />
+        {notice && <p className="mt-2 text-sm text-teal-700">{notice}</p>}
+        <OtpForm
+          email={pendingEmail}
+          onVerify={handleVerify}
+          onResend={handleResend}
+          submitLabel="Verify & continue"
+          initialRetryAfter={retryAfter}
+        />
       </Container>
     );
   }

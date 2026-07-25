@@ -48,9 +48,11 @@ class SearchController extends Controller
         }
 
         $progress = StoryCardPresenter::progressMap($user, $stories->pluck('id'));
+        $liked = StoryCardPresenter::likedMap($user, $stories->pluck('id'));
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, $stories->pluck('id'));
 
         return $this->ok([
-            'stories' => $stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress)),
+            'stories' => $stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked)),
             'authors' => $authors,
         ]);
     }
@@ -90,10 +92,12 @@ class SearchController extends Controller
             ->values();
 
         $progress = StoryCardPresenter::progressMap($user, $stories->pluck('id'));
+        $liked = StoryCardPresenter::likedMap($user, $stories->pluck('id'));
+        $bookmarked = StoryCardPresenter::bookmarkedMap($user, $stories->pluck('id'));
 
         return $this->ok([
             'stories' => $stories->map(fn (Story $s) => [
-                ...StoryCardPresenter::card($s, $user, $progress),
+                ...StoryCardPresenter::card($s, $user, $progress, $liked, $bookmarked),
                 'ai_reason' => $reasons[$s->slug] ?? null,
             ]),
             'source' => 'ai',
