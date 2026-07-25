@@ -45,6 +45,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
 
         Route::get('/me/badges', [BadgeController::class, 'mine']);
+        Route::get('/me/badges/next', [BadgeController::class, 'next']);
 
         Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);
@@ -74,6 +75,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/search/ai', [SearchController::class, 'ai']);
 
         Route::get('/stories/{slug}/comments', [CommentController::class, 'index']);
+
+        Route::post('/stories/{slug}/share', [InteractionController::class, 'share']);
 
         Route::get('/badges', [BadgeController::class, 'index']);
 

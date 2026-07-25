@@ -1,6 +1,7 @@
 import { useAllBadges, useMyBadges } from "../hooks/queries/useBadges";
 import { useAuth } from "../context/AuthContext";
 import BadgeGrid from "../components/badges/BadgeGrid";
+import NextBadges from "../components/badges/NextBadges";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Container from "../components/common/Container";
 
@@ -21,6 +22,7 @@ export default function BadgesPage() {
           : "Sign in to start earning badges as you read."}
       </p>
       <div className="mt-6">
+        <NextBadges variant="full" />
         {isLoading ? <LoadingSpinner /> : <BadgeGrid badges={badges} earnedIds={earnedIds} />}
       </div>
     </Container>

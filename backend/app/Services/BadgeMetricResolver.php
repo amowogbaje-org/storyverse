@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Resolves a user's current value for a badge's criteria_type, so the listener
  * can compare it against criteria_value. Each badge in the seeder declares one
- * of the keys below. Not every one of the 40 badges has a resolver yet -
- * unresolved criteria_types return null and are simply skipped (never
- * auto-awarded) rather than erroring, so partial rollout is safe.
+ * of the keys below. Every criteria_type currently in the seeder has a
+ * resolver; an unrecognized one returns null and is simply skipped (never
+ * auto-awarded) rather than erroring, so adding a new badge type is safe to
+ * roll out ahead of writing its resolver.
  */
 class BadgeMetricResolver
 {
@@ -23,6 +24,7 @@ class BadgeMetricResolver
             'comments_posted' => $this->countEvents($user, 'comment_posted'),
             'bookmarks_made' => $this->countEvents($user, 'story_bookmarked'),
             'likes_given' => $this->countEvents($user, 'story_liked'),
+            'shares_made' => $this->countEvents($user, 'story_shared'),
             'ai_search_uses' => $this->countEvents($user, 'ai_search_used'),
             'streak_days' => $user->current_streak_days,
             'categories_explored' => $this->distinctCategoriesRead($user),
@@ -39,10 +41,7 @@ class BadgeMetricResolver
             'new_release_reads' => $this->newReleaseReads($user),
             'author_all_stories_read' => $this->hasCompletedAllStoriesForAnyAuthor($user),
             'all_categories_explored' => $this->hasExploredAllCategories($user),
-            // 'bookmarked_before_trending' has no resolver: it would need a historical
-            // snapshot of each story's view count at the moment of each bookmark, which
-            // isn't tracked anywhere - views_count is a running total, not a time series.
-            // Add a bookmark-time snapshot column before wiring this one up.
+            'bookmarked_before_trending' => $this->earlyBookmarksNowTrending($user),
             default => null,
         };
     }
@@ -263,5 +262,27 @@ class BadgeMetricResolver
         $totalCategories = DB::table('categories')->count();
 
         return $totalCategories > 0 && $this->distinctCategoriesRead($user) >= $totalCategories ? 1 : 0;
+    }
+
+    /**
+     * Count of this reader's bookmarks that turned out to be prescient: the
+     * story had very few views at the moment they bookmarked it
+     * (views_count_at_bookmark <= tastemaker_early_views_threshold), and has
+     * since grown into one of the platform's most-viewed
+     * (stories.views_count, right now, >= tastemaker_trending_views_threshold).
+     *
+     * Both thresholds are configurable (config/badges.php) since "few views"
+     * and "trending" only mean something relative to your platform's actual
+     * traffic - there's no universal number that's right for every stage of
+     * growth, so tune them as the numbers on the site change.
+     */
+    private function earlyBookmarksNowTrending(User $user): int
+    {
+        return DB::table('story_bookmarks')
+            ->join('stories', 'stories.id', '=', 'story_bookmarks.story_id')
+            ->where('story_bookmarks.user_id', $user->id)
+            ->where('story_bookmarks.views_count_at_bookmark', '<=', config('badges.tastemaker_early_views_threshold'))
+            ->where('stories.views_count', '>=', config('badges.tastemaker_trending_views_threshold'))
+            ->count();
     }
 }

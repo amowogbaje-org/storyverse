@@ -22,6 +22,22 @@ export function useToggleBookmark(slug) {
   });
 }
 
+export function useShareStory(slug) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ platform, episodeNumber }) =>
+      (await api.post(`/stories/${slug}/share`, { platform, episode_number: episodeNumber })).data,
+    onSuccess: (data) => {
+      // Patch the count in place instead of a full refetch - keeps the click
+      // feeling instant, which matters for something meant to be low-friction
+      // enough that people actually bother sharing.
+      qc.setQueryData(["story", slug], (old) =>
+        old ? { ...old, data: { ...old.data, shares_count: data.data.shares_count } } : old
+      );
+    },
+  });
+}
+
 export function usePostComment(slug) {
   const qc = useQueryClient();
   return useMutation({

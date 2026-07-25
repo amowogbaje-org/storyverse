@@ -3,6 +3,7 @@ import { useStory } from "../hooks/queries/useStories";
 import { useToggleLike, useToggleBookmark } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import StoryStats from "../components/story/StoryStats";
+import ShareMenu from "../components/story/ShareMenu";
 import EpisodeList from "../components/reader/EpisodeList";
 import CommentList from "../components/comments/CommentList";
 import CommentForm from "../components/comments/CommentForm";
@@ -73,6 +74,7 @@ export default function StoryDetailPage() {
             >
               ⚑ {story.is_bookmarked_by_user ? "Bookmarked" : "Bookmark"}
             </button>
+            <ShareMenu slug={slug} title={story.title} sharesCount={story.shares_count} />
           </div>
         </div>
       </div>

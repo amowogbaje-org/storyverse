@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { canAccessEpisode, lockReason } from "../../utils/access";
 import { useAuth } from "../../context/AuthContext";
+import ShareMenu from "../story/ShareMenu";
 
 export default function EpisodeRow({ story, episode }) {
   const { user } = useAuth();
@@ -32,6 +33,12 @@ export default function EpisodeRow({ story, episode }) {
             : "Premium episode"}
         </p>
       </div>
+
+      {unlocked && (
+        <div onClick={(e) => e.preventDefault()} className="shrink-0">
+          <ShareMenu slug={story.slug} title={story.title} episodeNumber={episode.episode_number} variant="icon" />
+        </div>
+      )}
 
       {!unlocked && (
         <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-ink-300" fill="none" stroke="currentColor" strokeWidth="1.8">

@@ -16,3 +16,11 @@ export function useMyBadges(enabled) {
     enabled,
   });
 }
+
+export function useNextBadges(enabled, limit = 3) {
+  return useQuery({
+    queryKey: ["next-badges", limit],
+    queryFn: async () => (await api.get(`/me/badges/next?limit=${limit}`)).data,
+    enabled,
+  });
+}
