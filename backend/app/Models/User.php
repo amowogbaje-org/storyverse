@@ -14,7 +14,7 @@ class User extends Authenticatable
     protected $fillable = [
         "name", "email", "password", "phone", "country_code", "google_id",
         "currency", "avatar_url", "role", "email_verified_at",
-        "current_streak_days", "last_streak_date", "last_active_at",
+        "current_streak_days", "last_streak_date", "last_active_at", "notification_preferences",
     ];
 
     protected $hidden = ["password", "google_id"];
@@ -34,6 +34,11 @@ class User extends Authenticatable
     public function getDisplayNameAttribute(): string
     {
         return $this->name;
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     public function penNames(): HasMany

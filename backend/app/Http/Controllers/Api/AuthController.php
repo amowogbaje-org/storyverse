@@ -402,6 +402,45 @@ class AuthController extends Controller
         return $this->ok($this->userPayload($user));
     }
 
+    /**
+     * Every key here defaults to true (opt-out, not opt-in) if the user has
+     * never touched their preferences - notification_preferences starts out
+     * null, and `?? true` at every read site treats a missing key the same
+     * way. Listed here just so there's one place that documents what exists;
+     * each Notification class's via() is what actually reads/enforces these.
+     */
+    public const NOTIFICATION_PREFERENCE_KEYS = [
+        'badge_emails',          // BadgeUnlocked -> mail
+        'badge_push',            // BadgeUnlocked -> push
+        'new_story_push',        // NewStoryRecommendation -> database + push
+        'continue_reading_push', // ContinueReading -> database + push
+        'missed_you_push',       // WeMissedYou -> database + push
+    ];
+
+    public function updateNotificationPreferences(Request $request)
+    {
+        $user = $this->requireUser($request);
+
+        $data = $request->validate([
+            'preferences' => ['required', 'array'],
+            'preferences.*' => ['boolean'],
+        ]);
+
+        $unknown = array_diff(array_keys($data['preferences']), self::NOTIFICATION_PREFERENCE_KEYS);
+        if ($unknown) {
+            return $this->error('invalid_preference', 'Unknown preference key(s): '.implode(', ', $unknown), 422);
+        }
+
+        // Merge rather than replace - a client only sends the keys it has a
+        // toggle for, and shouldn't accidentally wipe out other preferences
+        // (present or future) it doesn't know about.
+        $user->update([
+            'notification_preferences' => array_merge($user->notification_preferences ?? [], $data['preferences']),
+        ]);
+
+        return $this->ok(['notification_preferences' => $user->notification_preferences]);
+    }
+
     public function updateCountry(Request $request)
     {
         $user = $this->requireUser($request);

@@ -84,3 +84,19 @@ export function usePublishEpisode(storyId) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "story", storyId, "episodes"] }),
   });
 }
+
+export function useAddToBlacklist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ email, reason }) => (await api.post("/admin/emails/blacklist", { email, reason })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "email-blacklist"] }),
+  });
+}
+
+export function useRemoveFromBlacklist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (email) => (await api.delete(`/admin/emails/blacklist/${encodeURIComponent(email)}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "email-blacklist"] }),
+  });
+}

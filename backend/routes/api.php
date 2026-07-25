@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::patch('/me', [AuthController::class, 'updateMe']);
+        Route::patch('/me/notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
         Route::post('/me/become-author', [AuthController::class, 'becomeAuthor']);
         Route::patch('/me/country', [AuthController::class, 'updateCountry']);
 
@@ -50,6 +51,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);
         Route::post('/me/subscription/cancel', [SubscriptionController::class, 'cancel']);
+
+        Route::get('/me/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+        Route::get('/me/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::post('/me/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead']);
+        Route::post('/me/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
+
+        Route::post('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'store']);
+        Route::delete('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'destroy']);
     });
 
     // Catalog / discovery - optional auth (locked flags / is_liked_by_me depend on auth state,

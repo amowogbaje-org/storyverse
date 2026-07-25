@@ -107,6 +107,10 @@ services:
       # to enable the Google Sign-In button. Safe to leave unset - it just
       # defaults to blank and the button stays hidden.
       - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      # Push notifications: same value as VAPID_PUBLIC_KEY in backend/.env - it's
+      # the "public" half of the pair, meant to ship to the browser. Leave unset
+      # and the push-notification toggle just won't render (isPushSupported()).
+      - VITE_VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
     depends_on:
       - backend
     networks:

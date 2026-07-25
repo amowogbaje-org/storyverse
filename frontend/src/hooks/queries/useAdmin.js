@@ -73,3 +73,11 @@ export function useAdminTopStories(days = 30, enabled) {
     enabled,
   });
 }
+
+export function useAdminEmailBlacklist(enabled) {
+  return useQuery({
+    queryKey: ["admin", "email-blacklist"],
+    queryFn: async () => (await api.get("/admin/emails/blacklist")).data,
+    enabled,
+  });
+}

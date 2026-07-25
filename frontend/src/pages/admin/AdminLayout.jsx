@@ -16,7 +16,9 @@ export default function AdminLayout() {
   if (!isAuthenticated) return <Navigate to="/login?next=/admin" replace />;
   if (!["author", "admin"].includes(user?.role)) return <Navigate to="/" replace />;
 
-  const links = user.role === "admin" ? [...LINKS, { to: "/admin/analytics", label: "Platform analytics" }] : LINKS;
+  const links = user.role === "admin"
+    ? [...LINKS, { to: "/admin/analytics", label: "Platform analytics" }, { to: "/admin/email-blacklist", label: "Email blacklist" }]
+    : LINKS;
 
   return (
     <Container className="py-6 pb-24">

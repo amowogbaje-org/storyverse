@@ -56,6 +56,10 @@ uploaded over SSH by `.github/workflows/ci.yml` (the `deploy-cpanel` job).
 And one repo **variable** (not secret, it's not sensitive): `VITE_API_URL` set to
 your API subdomain, e.g. `https://api.yourdomain.com/api/v1`.
 
+Also add `VAPID_PUBLIC_KEY` as a repo **variable** (again, not secret - it's the
+public half of the push-notification key pair, meant to ship to the browser) once
+you've generated it - see "Push notifications" below.
+
 ## Every push to `main` after that
 
 `deploy-cpanel` in `ci.yml` runs automatically: tests pass → frontend builds with
@@ -103,6 +107,30 @@ like tags - so it works unchanged on both targets:
   ever scale to multiple app servers on the same account without redis, switch
   to `CACHE_STORE=database` (add a `cache` table via `php artisan cache:table`)
   so all servers share one cache instead of each having its own.
+
+## Push notifications
+
+One-time setup, both environments:
+
+1. Generate a VAPID key pair:
+   `php artisan tinker --execute="print_r(Minishlink\WebPush\VAPID::createVapidKeys());"`
+2. Backend `.env`: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a
+   `mailto:` address push services can contact if this server misbehaves).
+3. Frontend needs the **public** key only, as `VITE_VAPID_PUBLIC_KEY` - it's baked
+   in at build time (Vite), not read at runtime, so:
+   - **Docker**: already wired in `compose.yaml` from `VAPID_PUBLIC_KEY` in your
+     shell env - `export $(grep VAPID_PUBLIC_KEY backend/.env)` before `docker
+     compose up`, same as the existing `GOOGLE_CLIENT_ID` pattern.
+   - **cPanel/CI**: add `VAPID_PUBLIC_KEY` as a GitHub repo **variable** (see
+     above) - `ci.yml`'s frontend build step already passes it through.
+
+Leave any of this unset and push notifications just quietly don't offer
+themselves (`isPushSupported()` on the frontend checks for the key; the backend's
+`WebPushChannel` no-ops without one) - nothing else breaks either way.
+
+The three re-engagement jobs (new-story recommendations, continue-reading
+reminders, "we missed you") are plain scheduled commands - see "Why no queue
+worker or scheduler daemon" below for how they run on cPanel.
 
 ## If something doesn't boot
 

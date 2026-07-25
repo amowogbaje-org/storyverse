@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WebPushChannel;
 use App\Models\Badge;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,24 +16,39 @@ class BadgeUnlocked extends Notification
 
     public function via($notifiable): array
     {
-        // In-app always fires. Email also fires for every tier now - it's the
-        // only thing that reliably tells the user they unlocked something,
-        // since the in-app badge state is easy to miss. Still opt-outable.
+        // In-app always fires - it's the record of having earned it, not really
+        // an interruption. Push and email are each separately opt-outable.
         $channels = ['database'];
 
-        $wantsEmail = $notifiable->notification_preferences['badge_emails'] ?? true;
+        $prefs = $notifiable->notification_preferences ?? [];
 
-        if ($wantsEmail) {
+        if ($prefs['badge_push'] ?? true) {
+            $channels[] = WebPushChannel::class;
+        }
+
+        if ($prefs['badge_emails'] ?? true) {
             $channels[] = 'mail';
         }
 
         return $channels;
     }
 
+    public function toWebPush($notifiable): array
+    {
+        return [
+            'title' => "🏅 You earned \"{$this->badge->name}\"!",
+            'body' => $this->badge->description,
+            'url' => '/badges',
+        ];
+    }
+
     public function toDatabase($notifiable): array
     {
         return [
             'type' => 'badge_unlocked',
+            'title' => "You earned \"{$this->badge->name}\"!",
+            'body' => $this->badge->description,
+            'url' => '/badges',
             'badge_id' => $this->badge->id,
             'badge_name' => $this->badge->name,
             'tier' => $this->badge->tier,
@@ -46,6 +62,6 @@ class BadgeUnlocked extends Notification
             ->subject("You earned the \"{$this->badge->name}\" badge!")
             ->line("Congratulations - you've unlocked the {$this->badge->tier} badge \"{$this->badge->name}\".")
             ->line($this->badge->description)
-            ->action('View your badges', url('/profile/badges'));
+            ->action('View your badges', url('/badges'));
     }
 }

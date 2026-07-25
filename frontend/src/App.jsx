@@ -3,6 +3,7 @@ import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import MobileTabBar from "./components/layout/MobileTabBar";
 import { usePageviewTracking } from "./hooks/usePageviewTracking";
+import { usePushSetup } from "./hooks/usePushSetup";
 
 import HomePage from "./pages/HomePage";
 import BrowsePage from "./pages/BrowsePage";
@@ -27,9 +28,11 @@ import AdminStoryEditorPage from "./pages/admin/AdminStoryEditorPage";
 import AdminPenNamesPage from "./pages/admin/AdminPenNamesPage";
 import AdminEarningsPage from "./pages/admin/AdminEarningsPage";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminEmailBlacklistPage from "./pages/admin/AdminEmailBlacklistPage";
 
 export default function App() {
   usePageviewTracking();
+  usePushSetup();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -59,6 +62,7 @@ export default function App() {
             <Route path="pen-names" element={<AdminPenNamesPage />} />
             <Route path="earnings" element={<AdminEarningsPage />} />
             <Route path="analytics" element={<AdminAnalyticsPage />} />
+            <Route path="email-blacklist" element={<AdminEmailBlacklistPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />
