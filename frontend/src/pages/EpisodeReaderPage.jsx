@@ -26,19 +26,52 @@ export default function EpisodeReaderPage() {
   const prev = story?.episodes?.[idx - 1];
 
   useEffect(() => {
+    let debounceTimer = null;
+    let dwellTimer = null;
+
+    function send(percent) {
+      if (percent - lastSent.current < 1) return;
+      lastSent.current = Math.max(lastSent.current, percent);
+      recordProgress.mutate(Math.round(lastSent.current));
+    }
+
     function onScroll() {
       const el = contentRef.current;
       if (!el) return;
       const total = el.scrollHeight - window.innerHeight;
       const scrolled = window.scrollY - el.offsetTop;
       const percent = Math.max(0, Math.min(100, (scrolled / Math.max(total, 1)) * 100));
-      if (percent - lastSent.current >= 5) {
-        lastSent.current = percent;
-        recordProgress.mutate(Math.round(percent));
-      }
+
+      // Debounced rather than sent on every scroll tick: scroll fires dozens of
+      // times a second, and firing a request per tick (with no guaranteed
+      // response ordering) is what let a stale low-percent request land after
+      // the real 100% one and silently reset it to "not started". Waiting for
+      // the user to pause, plus only ever moving lastSent forward, fixes that.
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => send(percent), 400);
     }
+
+    // Short episodes that fit entirely within the viewport never generate a
+    // scroll event at all, so they'd otherwise get stuck at 0%/"not started"
+    // forever. Count them as read once the reader has actually dwelled on the
+    // page for a few seconds.
+    const el = contentRef.current;
+    if (el && el.scrollHeight <= window.innerHeight) {
+      dwellTimer = window.setTimeout(() => send(100), 3000);
+    }
+
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.clearTimeout(debounceTimer);
+      window.clearTimeout(dwellTimer);
+      window.removeEventListener("scroll", onScroll);
+      // Flush whatever we have on the way out (e.g. user taps "next episode"
+      // before the debounce timer would have fired) so a near-finish read
+      // isn't lost.
+      if (lastSent.current > 0) {
+        recordProgress.mutate(Math.round(lastSent.current));
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, episodeNumber]);
 

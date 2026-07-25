@@ -15,13 +15,14 @@ class BadgeUnlocked extends Notification
 
     public function via($notifiable): array
     {
-        // Resolved per the badges design doc: in-app always fires; email only for
-        // Silver tier and above, and only if the user hasn't opted out.
+        // In-app always fires. Email also fires for every tier now - it's the
+        // only thing that reliably tells the user they unlocked something,
+        // since the in-app badge state is easy to miss. Still opt-outable.
         $channels = ['database'];
 
         $wantsEmail = $notifiable->notification_preferences['badge_emails'] ?? true;
 
-        if (in_array($this->badge->tier, ['silver', 'gold', 'platinum'], true) && $wantsEmail) {
+        if ($wantsEmail) {
             $channels[] = 'mail';
         }
 

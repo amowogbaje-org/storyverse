@@ -83,6 +83,8 @@ class StoryManagementController extends Controller
             $story->genres()->sync($data['genre_ids']);
         }
 
+        \App\Support\HomeCache::forgetHomepage();
+
         return $this->ok($story->fresh(['penName', 'category', 'genres']));
     }
 
@@ -96,6 +98,8 @@ class StoryManagementController extends Controller
 
         $story->update(['status' => 'published', 'published_at' => $story->published_at ?? now()]);
 
+        \App\Support\HomeCache::forgetHomepage();
+
         return $this->ok($story);
     }
 
@@ -104,6 +108,8 @@ class StoryManagementController extends Controller
         $story = $this->ownedStoryOrFail($request, $id);
         $story->update(['status' => 'draft']);
 
+        \App\Support\HomeCache::forgetHomepage();
+
         return $this->ok($story);
     }
 
@@ -111,6 +117,8 @@ class StoryManagementController extends Controller
     {
         $story = $this->ownedStoryOrFail($request, $id);
         $story->delete();
+
+        \App\Support\HomeCache::forgetHomepage();
 
         return $this->ok(['deleted' => true]);
     }

@@ -28,6 +28,16 @@ export function useUpdateStory(id) {
   });
 }
 
+export function useUploadCoverImage() {
+  return useMutation({
+    mutationFn: async (file) => {
+      const form = new FormData();
+      form.append("image", file);
+      return (await api.post("/admin/uploads/cover-image", form)).data;
+    },
+  });
+}
+
 export function usePublishStory(id) {
   const qc = useQueryClient();
   return useMutation({

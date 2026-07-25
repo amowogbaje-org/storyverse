@@ -12,6 +12,12 @@ return [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
         ],
+        'database' => [
+            'driver' => 'database',
+            'connection' => null,
+            'table' => 'cache',
+            'lock_connection' => null,
+        ],
         'redis' => [
             'driver' => 'redis',
             'connection' => 'cache',

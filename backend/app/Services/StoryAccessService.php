@@ -8,7 +8,7 @@ use App\Models\User;
 
 class StoryAccessService
 {
-    private const GUEST_LIMIT = 2;
+    public const GUEST_LIMIT = 2;
     private const REGISTERED_PREMIUM_LIMIT = 5;
 
     public function __construct(private PlatformMetricsService $metrics) {}

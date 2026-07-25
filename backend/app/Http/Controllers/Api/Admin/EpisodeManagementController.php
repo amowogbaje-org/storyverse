@@ -57,6 +57,8 @@ class EpisodeManagementController extends Controller
 
         $episode->update($data);
 
+        \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
+
         return $this->ok($episode);
     }
 
@@ -67,6 +69,8 @@ class EpisodeManagementController extends Controller
 
         $episode->update(['status' => 'published', 'published_at' => $episode->published_at ?? now()]);
 
+        \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
+
         return $this->ok($episode);
     }
 
@@ -76,6 +80,8 @@ class EpisodeManagementController extends Controller
         $episode = $story->episodes()->findOrFail($episodeId);
         $episode->delete();
         $story->decrement('episodes_count');
+
+        \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
 
         return $this->ok(['deleted' => true]);
     }

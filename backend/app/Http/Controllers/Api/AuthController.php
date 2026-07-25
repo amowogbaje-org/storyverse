@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BlacklistedEmail;
 use App\Models\User;
 use App\Notifications\OtpCodeNotification;
+use App\Notifications\WelcomeNotification;
 use App\Services\GeoDetectionService;
 use App\Services\JwtService;
 use Illuminate\Http\Request;
@@ -26,7 +28,7 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', Rule::unique('users', 'email')],
+            'email' => ['required', 'email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'accept_terms' => ['accepted'],
             'country_code' => ['nullable', 'string', 'size:2'],
@@ -35,6 +37,33 @@ class AuthController extends Controller
             'password.confirmed' => 'Password and confirmation do not match.',
             'accept_terms.accepted' => 'You must agree to the Terms of Service and Privacy Policy.',
         ]);
+
+        if (BlacklistedEmail::isBlacklisted($data['email'])) {
+            return $this->error('invalid_email', 'We were unable to deliver mail to this email address before. Please use a different email address.', 422);
+        }
+
+        $existing = User::where('email', $data['email'])->first();
+
+        if ($existing) {
+            if ($existing->email_verified_at) {
+                // Real, verified account already owns this email - this is the normal
+                // "you already have an account" case, not the silent/ambiguous one.
+                return $this->error('email_taken', 'An account with this email already exists. Try signing in instead.', 422);
+            }
+
+            // They signed up before but never verified. Don't create a second account
+            // and don't fail ambiguously - say plainly what happened and get them a
+            // fresh code (subject to the normal 1-minute resend limit).
+            $otp = $this->issueOtp($existing->email, 'verify');
+
+            return $this->ok([
+                'user' => $this->userPayload($existing),
+                'requires_verification' => true,
+                'already_registered' => true,
+                'email' => $existing->email,
+                'retry_after' => $otp['retry_after'],
+            ], 200);
+        }
 
         // Respect an explicit country_code from the form (possibly user-overridden);
         // only fall back to detection if the client didn't send one. Note: a
@@ -64,12 +93,13 @@ class AuthController extends Controller
 
         // Account exists but stays unverified/token-less until the OTP we just sent
         // is confirmed via /auth/otp/verify - see verifyOtp() below.
-        $this->issueOtp($user->email, 'verify');
+        $otp = $this->issueOtp($user->email, 'verify');
 
         return $this->ok([
             'user' => $this->userPayload($user),
             'requires_verification' => true,
             'email' => $user->email,
+            'retry_after' => $otp['retry_after'],
         ], 201);
     }
 
@@ -80,10 +110,30 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        if (BlacklistedEmail::isBlacklisted($data['email'])) {
+            return $this->error('invalid_email', 'This email address looks invalid. Please use a different email address.', 422);
+        }
+
         $user = User::where('email', $data['email'])->first();
 
         if (! $user || ! $user->password || ! Hash::check($data['password'], $user->password)) {
             return $this->error('invalid_credentials', 'Email or password is incorrect.', 401);
+        }
+
+        if (! $user->email_verified_at) {
+            // Correct credentials, but the account was never verified. Don't sign
+            // them in - tell them plainly, and get a fresh code moving so the
+            // frontend can drop them straight into the OTP screen with a countdown.
+            $otp = $this->issueOtp($user->email, 'verify');
+
+            return response()->json([
+                'error' => [
+                    'code' => 'email_not_verified',
+                    'message' => "Please verify your email before signing in. We've sent a fresh code.",
+                ],
+                'email' => $user->email,
+                'retry_after' => $otp['retry_after'],
+            ], 403);
         }
 
         return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
@@ -98,16 +148,39 @@ class AuthController extends Controller
         ]);
 
         if (isset($data['email'])) {
-            $this->issueOtp($data['email'], $data['purpose'] ?? 'verify');
-        } else {
-            // TODO: wire up Termii (or another SMS provider) for phone-based OTP delivery.
-            // Until then this behaves like local-env email: the code only goes to the log.
-            $code = (string) random_int(100000, 999999);
-            cache()->put('otp:' . $data['phone'], Hash::make($code), now()->addMinutes(10));
-            $this->logOtpForLocalDebugging($data['phone'], $code);
+            if (BlacklistedEmail::isBlacklisted($data['email'])) {
+                return $this->error('invalid_email', 'This email address looks invalid. Please use a different email address.', 422);
+            }
+
+            $otp = $this->issueOtp($data['email'], $data['purpose'] ?? 'verify');
+
+            if (! $otp['sent']) {
+                return response()->json([
+                    'error' => ['code' => 'otp_rate_limited', 'message' => 'Please wait before requesting another code.'],
+                    'retry_after' => $otp['retry_after'],
+                ], 429);
+            }
+
+            return $this->ok(['message' => 'OTP sent.', 'retry_after' => $otp['retry_after']]);
         }
 
-        return $this->ok(['message' => 'OTP sent.']);
+        $throttleKey = 'otp:throttle:' . $data['phone'];
+
+        if (cache()->has($throttleKey)) {
+            return response()->json([
+                'error' => ['code' => 'otp_rate_limited', 'message' => 'Please wait before requesting another code.'],
+                'retry_after' => $this->secondsUntil($throttleKey),
+            ], 429);
+        }
+
+        // TODO: wire up Termii (or another SMS provider) for phone-based OTP delivery.
+        // Until then this behaves like local-env email: the code only goes to the log.
+        $code = (string) random_int(100000, 999999);
+        cache()->put('otp:' . $data['phone'], Hash::make($code), now()->addSeconds(60));
+        cache()->put($throttleKey, now()->addSeconds(60)->timestamp, now()->addSeconds(60));
+        $this->logOtpForLocalDebugging($data['phone'], $code);
+
+        return $this->ok(['message' => 'OTP sent.', 'retry_after' => 60]);
     }
 
     public function verifyOtp(Request $request)
@@ -139,11 +212,25 @@ class AuthController extends Controller
             ]
         );
 
-        if (! $user->email_verified_at) {
+        $wasUnverified = ! $user->email_verified_at;
+
+        if ($wasUnverified) {
             $user->update(['email_verified_at' => now()]);
+
+            if ($user->email) {
+                $user->notify(new WelcomeNotification());
+            }
         }
 
-        return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+        // Verification succeeded - a stale resend throttle shouldn't block whatever
+        // they do next (e.g. a login-purpose OTP a minute from now).
+        cache()->forget('otp:throttle:' . $identifier);
+
+        return $this->ok([
+            'user' => $this->userPayload($user),
+            'token' => $this->jwt->issue($user),
+            'newly_verified' => $wasUnverified,
+        ]);
     }
 
     /**
@@ -200,19 +287,47 @@ class AuthController extends Controller
     }
 
     /**
-     * Generates a 6-digit code, stores only its hash (10 minute TTL), and
-     * emails the plaintext code via Mailpit/SMTP. Shared by register() and
-     * the standalone /auth/otp/request endpoint (resend uses the same path).
+     * Generates a 6-digit code, stores only its hash (1 minute TTL), and emails
+     * the plaintext code via Mailpit/SMTP. Shared by register(), login()'s
+     * unverified path, and the standalone /auth/otp/request endpoint.
+     *
+     * Also enforces a 1-minute resend throttle per email: if a code was issued
+     * less than a minute ago, this is a no-op that just reports how much of the
+     * throttle window is left, so the frontend can render an accurate countdown
+     * instead of silently re-sending (or worse, silently doing nothing).
+     *
+     * @return array{sent: bool, retry_after: int} retry_after is seconds remaining
+     *         before another code can be requested.
      */
-    private function issueOtp(string $email, string $purpose = 'verify'): void
+    private function issueOtp(string $email, string $purpose = 'verify'): array
     {
+        $throttleKey = 'otp:throttle:' . $email;
+
+        if (cache()->has($throttleKey)) {
+            return ['sent' => false, 'retry_after' => $this->secondsUntil($throttleKey)];
+        }
+
         $code = (string) random_int(100000, 999999);
 
-        cache()->put('otp:' . $email, Hash::make($code), now()->addMinutes(10));
+        cache()->put('otp:' . $email, Hash::make($code), now()->addSeconds(60));
+        cache()->put($throttleKey, now()->addSeconds(60)->timestamp, now()->addSeconds(60));
 
         Notification::route('mail', $email)->notify(new OtpCodeNotification($code, $purpose));
 
         $this->logOtpForLocalDebugging($email, $code);
+
+        return ['sent' => true, 'retry_after' => 60];
+    }
+
+    /**
+     * Reads the throttle cache entry (a unix timestamp of when it expires) and
+     * returns how many whole seconds remain, never negative.
+     */
+    private function secondsUntil(string $throttleKey): int
+    {
+        $expiresAt = (int) cache()->get($throttleKey, now()->timestamp);
+
+        return max(0, $expiresAt - now()->timestamp);
     }
 
     /**

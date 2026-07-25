@@ -94,6 +94,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/analytics/top-stories', [\App\Http\Controllers\Api\AnalyticsController::class, 'topStories']);
         Route::get('/analytics/funnel', [\App\Http\Controllers\Api\AnalyticsController::class, 'funnel']);
         Route::get('/analytics/events', [\App\Http\Controllers\Api\AnalyticsController::class, 'events']);
+
+        // Mail-risk mitigation (no transactional email provider yet - see EmailBlacklistController).
+        Route::get('/emails/blacklist', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'index']);
+        Route::post('/emails/blacklist', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'store']);
+        Route::get('/emails/blacklist/add', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'storeViaGet']);
+        Route::delete('/emails/blacklist/{email}', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'destroy']);
     });
 
     // Content management panel - authors manage their own stories, admins manage anyone's
@@ -118,6 +124,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/stories/{storyId}/episodes/{episodeId}', [\App\Http\Controllers\Api\Admin\EpisodeManagementController::class, 'update']);
         Route::post('/stories/{storyId}/episodes/{episodeId}/publish', [\App\Http\Controllers\Api\Admin\EpisodeManagementController::class, 'publish']);
         Route::delete('/stories/{storyId}/episodes/{episodeId}', [\App\Http\Controllers\Api\Admin\EpisodeManagementController::class, 'destroy']);
+
+        Route::post('/uploads/cover-image', [\App\Http\Controllers\Api\Admin\ImageUploadController::class, 'coverImage']);
     });
 
     // Webhooks - public, signature-verified inside the resolved PaymentGateway implementation
