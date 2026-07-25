@@ -5,6 +5,7 @@ import { useRecordProgress } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
 import UpsellBanner from "../components/reader/UpsellBanner";
+import ShareMenu from "../components/story/ShareMenu";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Container from "../components/common/Container";
 
@@ -88,9 +89,12 @@ export default function EpisodeReaderPage() {
   return (
     <Container className="max-w-2xl py-6 pb-24">
       <Link to={`/stories/${slug}`} className="text-sm text-teal-700 hover:underline">← {story.title}</Link>
-      <h1 className="mt-2 font-display text-2xl font-semibold text-ink-950">
-        Episode {episode?.episode_number} · {episode?.title}
-      </h1>
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <h1 className="font-display text-2xl font-semibold text-ink-950">
+          Episode {episode?.episode_number} · {episode?.title}
+        </h1>
+        <ShareMenu slug={slug} title={story.title} episodeNumber={num} variant="icon" />
+      </div>
 
       <article
         ref={contentRef}

@@ -41,6 +41,7 @@ class StoryCardPresenter
             'likes_count' => $story->likes_count,
             'bookmarks_count' => $story->bookmarks_count,
             'comments_count' => $story->comments_count,
+            'shares_count' => $story->shares_count,
             'category_name' => $story->category?->name,
             'author_display_name' => $story->penName?->display_name,
             'author_slug' => $story->penName?->slug,

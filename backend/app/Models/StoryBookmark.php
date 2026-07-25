@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class StoryBookmark extends Model
 {
     public $timestamps = false;
-    protected $fillable = ['user_id', 'story_id', 'created_at'];
+    protected $fillable = ['user_id', 'story_id', 'views_count_at_bookmark', 'created_at'];
 
     public function user(): BelongsTo
     {

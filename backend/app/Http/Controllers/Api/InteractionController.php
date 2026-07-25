@@ -12,6 +12,34 @@ class InteractionController extends Controller
 {
     public function __construct(private \App\Services\StoryAccessService $access) {}
 
+    public function share(Request $request, string $slug)
+    {
+        $data = $request->validate([
+            'platform' => ['required', 'string', 'in:copy_link,whatsapp,facebook,twitter,linkedin,telegram,email,native'],
+            'episode_number' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $story = Story::where('slug', $slug)->firstOrFail();
+        $story->increment('shares_count');
+
+        // Unlike likes/bookmarks, sharing doesn't require an account - a logged-out
+        // reader can still share a link. Only log the badge-eligible activity event
+        // (and count toward "shares_made" for BadgeMetricResolver) when we actually
+        // know who did it. episode_number just tags *what* was shared (the story
+        // page vs. a specific episode) - shares_count itself stays per-story either
+        // way, same granularity as likes/bookmarks/comments.
+        $user = $this->currentUser($request);
+        if ($user) {
+            $this->logActivity($user->id, 'story_shared', [
+                'story_id' => $story->id,
+                'platform' => $data['platform'],
+                'episode_number' => $data['episode_number'] ?? null,
+            ]);
+        }
+
+        return $this->ok(['shares_count' => $story->fresh()->shares_count]);
+    }
+
     public function like(Request $request, string $slug)
     {
         $user = $this->requireUser($request);
@@ -46,7 +74,10 @@ class InteractionController extends Controller
         $user = $this->requireUser($request);
         $story = Story::where('slug', $slug)->firstOrFail();
 
-        $created = $story->bookmarks()->firstOrCreate(['user_id' => $user->id]);
+        $created = $story->bookmarks()->firstOrCreate(
+            ['user_id' => $user->id],
+            ['views_count_at_bookmark' => $story->views_count]
+        );
 
         if ($created->wasRecentlyCreated) {
             $story->increment('bookmarks_count');

@@ -3,6 +3,7 @@ const ICONS = {
   likes: "M12 21s-7-4.35-9.5-8.8C.9 8.6 2.4 5 6 5c2 0 3.5 1.2 4 2.4C10.5 6.2 12 5 14 5c3.6 0 5.1 3.6 3.5 7.2C19 16.65 12 21 12 21Z",
   bookmarks: "M6 3h12v18l-6-4-6 4Z",
   comments: "M4 4h16v12H8l-4 4Z",
+  shares: "M18 5a3 3 0 1 0-2.83-4H15a3 3 0 0 0 .09.73L8.09 5.51a3 3 0 1 0 0 4.98l7 3.78a3 3 0 1 0 .99-1.76l-7-3.78a3 3 0 0 0 0-1.46l7-3.78c.28.16.58.27.9.33L15.17 4A3 3 0 0 0 18 5Z",
 };
 
 function Stat({ icon, value, label }) {
@@ -29,6 +30,7 @@ export default function StoryStats({ story, className = "" }) {
       <Stat icon="likes" value={story.likes_count} label="Likes" />
       <Stat icon="bookmarks" value={story.bookmarks_count} label="Bookmarks" />
       <Stat icon="comments" value={story.comments_count} label="Comments" />
+      <Stat icon="shares" value={story.shares_count} label="Shares" />
     </div>
   );
 }

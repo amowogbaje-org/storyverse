@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Badge;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class BadgeSeeder extends Seeder
 {
@@ -35,7 +36,12 @@ class BadgeSeeder extends Seeder
             $this->b('Collector', 'social', 'silver', 'bookmarks_made', 50),
             $this->b('Superfan', 'social', 'silver', 'likes_given', 100),
             $this->b('Early Voice', 'social', 'gold', 'early_comments', 20, 'bonus_access', ['free_premium_days' => 3]),
-            $this->b('Tastemaker', 'social', 'platinum', 'bookmarked_before_trending', 1, 'recommendation'), // TODO: needs a bookmark-time view-count snapshot, see BadgeMetricResolver
+            // Fixed: now resolvable - see BadgeMetricResolver::earlyBookmarksNowTrending()
+            // and the views_count_at_bookmark snapshot column on story_bookmarks.
+            $this->b('Tastemaker', 'social', 'platinum', 'bookmarked_before_trending', 1, 'recommendation'),
+            $this->b('First Share', 'social', 'bronze', 'shares_made', 1),
+            $this->b('Promoter', 'social', 'silver', 'shares_made', 10, 'recommendation'),
+            $this->b('Hype Machine', 'social', 'gold', 'shares_made', 50, 'bonus_access', ['free_premium_days' => 3]),
 
             // Spending / Subscription
             $this->b('First Unlock', 'spending', 'bronze', 'cumulative_spend', 1),
@@ -81,7 +87,7 @@ class BadgeSeeder extends Seeder
         return [
             'name' => $name,
             'slug' => str($name)->slug(),
-            'description' => "Earn the {$name} badge.", // placeholder copy - worth writing real descriptions before launch
+            'description' => $this->describe($criteriaType, $criteriaValue),
             'icon_url' => null,
             'category' => $category,
             'tier' => $tier,
@@ -90,5 +96,50 @@ class BadgeSeeder extends Seeder
             'reward_type' => $rewardType,
             'reward_payload' => $rewardPayload,
         ];
+    }
+
+    /**
+     * Turns a criteria_type + criteria_value into plain-language copy shown
+     * on the badge (frontend BadgesPage/BadgeGrid) and in the unlock email -
+     * this is the "what do I actually have to do" text, so it needs to read
+     * like an instruction, not a database field name.
+     */
+    private function describe(string $criteriaType, int $value): string
+    {
+        $ep = Str::plural('episode', $value);
+        $story = Str::plural('story', $value);
+        $day = Str::plural('day', $value);
+        $month = Str::plural('month', $value);
+        $category = Str::plural('category', $value);
+        $genre = Str::plural('genre', $value);
+        $comment = Str::plural('comment', $value);
+        $time = Str::plural('time', $value);
+
+        return match ($criteriaType) {
+            'episodes_completed' => "Finish {$value} {$ep}, across any stories.",
+            'stories_completed' => "Complete {$value} full {$story} (every published episode read).",
+            'comments_posted' => "Post {$value} {$comment} on any episodes.",
+            'bookmarks_made' => "Bookmark {$value} {$story}.",
+            'likes_given' => "Like {$value} {$story}.",
+            'ai_search_uses' => "Use AI search {$value} {$time} to find something to read.",
+            'streak_days' => "Read on {$value} days in a row.",
+            'categories_explored' => "Read at least one story from {$value} different {$category}.",
+            'genres_explored' => "Read at least one story from {$value} different {$genre}.",
+            'author_stories_completed_max' => "Complete {$value} {$story} from the same author.",
+            'cumulative_spend' => "Reach {$value} total spent on the platform, across any purchases.",
+            'premium_months_consecutive' => "Stay subscribed for {$value} consecutive {$month}.",
+            'annual_plan_purchased' => 'Purchase an annual subscription plan.',
+            'premium_episodes_unlocked_stories' => "Unlock premium episodes in {$value} different {$story}.",
+            'early_comments' => "Post {$value} {$comment} within 24 hours of an episode going live.",
+            'late_night_reads' => "Read {$value} {$ep} between midnight and 4am.",
+            'early_morning_reads' => "Read {$value} {$ep} between 5am and 7am.",
+            'return_after_absence' => 'Come back and keep reading after taking a 14+ day break.',
+            'new_release_reads' => "Read {$value} {$ep} within a week of their release.",
+            'author_all_stories_read' => "Finish every published story from one author.",
+            'all_categories_explored' => 'Read at least one story from every category on the platform.',
+            'bookmarked_before_trending' => "Bookmark {$value} {$story} while it still had very few views, before it went on to become one of the platform's most-viewed.",
+            'shares_made' => "Share {$value} {$story} or {$ep}, to WhatsApp, Facebook, X, LinkedIn, or anywhere else.",
+            default => "Earn the {$value} required for this badge.",
+        };
     }
 }

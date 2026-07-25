@@ -13,7 +13,7 @@ class Story extends Model
         'pen_name_id', 'category_id', 'title', 'slug', 'description',
         'cover_image_url', 'status', 'access_type', 'is_completed',
         'episodes_count', 'views_count', 'likes_count', 'bookmarks_count',
-        'comments_count', 'published_at',
+        'comments_count', 'shares_count', 'published_at',
     ];
 
     protected $casts = [

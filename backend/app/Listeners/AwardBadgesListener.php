@@ -48,7 +48,11 @@ class AwardBadgesListener implements ShouldQueue
             'earned_at' => now(),
         ]);
 
-        if ($badge->reward_type === 'bonus_access') {
+        // Kill switch for now (config/badges.php) - the badge still unlocks and
+        // still notifies the user, this just skips actually granting the reward
+        // until rewards are turned on. Flip BADGE_REWARDS_ENABLED when ready;
+        // nothing else about this flow needs to change.
+        if (config('badges.rewards_enabled') && $badge->reward_type === 'bonus_access') {
             $this->grantBonusAccess($user, $badge->reward_payload['free_premium_days'] ?? 0);
         }
 
