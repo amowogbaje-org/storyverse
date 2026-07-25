@@ -14,3 +14,10 @@ Schedule::command('app:purge-unverified-users')->daily();
 
 // Daily analytics summary email - see SendAnalyticsSummary.
 Schedule::command('app:send-analytics-summary')->dailyAt('08:00');
+
+// Re-engagement notifications (in-app + push) - staggered so they don't all
+// hit the DB/push provider at once. See each command's docblock for the
+// rate-limiting/randomization that keeps these from feeling spammy.
+Schedule::command('app:send-new-story-recommendations')->dailyAt('09:00');
+Schedule::command('app:send-continue-reading-reminders')->dailyAt('09:15');
+Schedule::command('app:send-we-missed-you-notifications')->dailyAt('09:30');

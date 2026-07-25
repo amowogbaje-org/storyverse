@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Container from "../common/Container";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
   const { user, isAuthenticated, loading, logout } = useAuth();
@@ -37,7 +38,9 @@ export default function Navbar() {
           />
         </form>
 
-        <div className="relative ml-auto sm:ml-0">
+        <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          {isAuthenticated && !loading && <NotificationBell />}
+          <div className="relative">
           {loading ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-ink-950/10 sm:w-24" aria-hidden="true" />
           ) : isAuthenticated ? (
@@ -80,6 +83,7 @@ export default function Navbar() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </Container>
     </header>
