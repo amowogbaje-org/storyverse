@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
@@ -13,11 +13,25 @@ const CURRENCIES = [
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
-  const [displayName, setDisplayName] = useState(user?.display_name ?? "");
-  const [currency, setCurrency] = useState(user?.currency_code ?? "USD");
+  const [displayName, setDisplayName] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [becomingAuthor, setBecomingAuthor] = useState(false);
+
+  // Keeps the form in sync with the real user object rather than only reading
+  // it once at mount. Two different bugs otherwise: (1) if `user` is still
+  // null on the very first render (auth still loading) and only arrives on a
+  // later re-render without this component unmounting in between, a
+  // mount-only useState initializer never picks it up; (2) the previous code
+  // read `user.currency_code`, but the API actually returns the field as
+  // `currency` - so the form was silently falling back to the hardcoded
+  // default every time, no matter what was actually saved.
+  useEffect(() => {
+    if (!user) return;
+    setDisplayName(user.display_name ?? "");
+    setCurrency(user.currency ?? "USD");
+  }, [user]);
 
   async function becomeAuthor() {
     setBecomingAuthor(true);
