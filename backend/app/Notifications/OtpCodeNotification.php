@@ -12,7 +12,8 @@ class OtpCodeNotification extends Notification
 
     /**
      * @param string $code The plaintext 6-digit code (only the hash is persisted, this is what gets emailed).
-     * @param string $purpose "verify" (email verification during signup) or "login" (passwordless sign-in).
+     * @param string $purpose "verify" (email verification during signup), "login" (passwordless
+     *   sign-in), or "password_reset".
      */
     public function __construct(
         private readonly string $code,
@@ -26,17 +27,30 @@ class OtpCodeNotification extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $intro = $this->purpose === 'login'
-            ? 'Use this code to sign in to Storyverse:'
-            : 'Use this code to verify your email and finish creating your Storyverse account:';
+        $intro = match ($this->purpose) {
+            'login' => 'Use this code to sign in to Storyverse:',
+            'password_reset' => 'Use this code to reset your Storyverse password:',
+            default => 'Use this code to verify your email and finish creating your Storyverse account:',
+        };
 
-        return (new MailMessage)
-            ->subject('Your Storyverse verification code')
+        $subject = $this->purpose === 'password_reset'
+            ? 'Reset your Storyverse password'
+            : 'Your Storyverse verification code';
+
+        $mail = (new MailMessage)
+            ->subject($subject)
             ->greeting('Hi there,')
             ->line($intro)
             ->line("## {$this->formattedCode()}")
-            ->line('This code expires in 10 minutes.')
-            ->line("If you didn't request this, you can safely ignore this email.");
+            ->line('This code expires in 1 minute.');
+
+        if ($this->purpose === 'password_reset') {
+            $mail->line("If you didn't request a password reset, you can safely ignore this email - your password won't change unless this code is used.");
+        } else {
+            $mail->line("If you didn't request this, you can safely ignore this email.");
+        }
+
+        return $mail;
     }
 
     private function formattedCode(): string

@@ -22,6 +22,11 @@ return [
         'api_key' => env('SMS_TERMII_API_KEY'),
     ],
 
+    // Superseded by config/ai.php (published by the Laravel AI SDK, which reads
+    // OPENAI_API_KEY directly) now that AiSearchService goes through
+    // App\Ai\Agents\StorySearchAgent instead of calling OpenAI's API directly.
+    // Left here in case anything else in the app starts talking to OpenAI's raw
+    // API in the future.
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
     ],
@@ -36,5 +41,13 @@ return [
         // Comma-separated extra recipients for the daily analytics summary email
         // (app:send-analytics-summary), on top of every role=admin user.
         'summary_emails' => env('ANALYTICS_SUMMARY_EMAILS', ''),
+    ],
+
+    'ai_search' => [
+        // Which Laravel AI SDK provider (Laravel\Ai\Enums\Lab case, lowercase
+        // string is fine) StorySearchAgent uses. Switching providers - e.g. from
+        // Gemini to OpenAI once you have a key for it - is just this env var
+        // plus that provider's own API key in config/ai.php; no code change.
+        'provider' => env('AI_SEARCH_PROVIDER', 'gemini'),
     ],
 ];

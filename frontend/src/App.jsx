@@ -4,6 +4,7 @@ import Footer from "./components/layout/Footer";
 import MobileTabBar from "./components/layout/MobileTabBar";
 import { usePageviewTracking } from "./hooks/usePageviewTracking";
 import { usePushSetup } from "./hooks/usePushSetup";
+import { useReferralCapture } from "./hooks/useReferralCapture";
 
 import HomePage from "./pages/HomePage";
 import BrowsePage from "./pages/BrowsePage";
@@ -12,10 +13,12 @@ import EpisodeReaderPage from "./pages/EpisodeReaderPage";
 import SearchPage from "./pages/SearchPage";
 import AuthorPage from "./pages/AuthorPage";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProfilePage from "./pages/ProfilePage";
 import LibraryPage from "./pages/LibraryPage";
 import BadgesPage from "./pages/BadgesPage";
+import ReferralsPage from "./pages/ReferralsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SupportPage from "./pages/SupportPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
@@ -33,6 +36,7 @@ import AdminEmailBlacklistPage from "./pages/admin/AdminEmailBlacklistPage";
 export default function App() {
   usePageviewTracking();
   usePushSetup();
+  useReferralCapture();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -46,10 +50,12 @@ export default function App() {
           <Route path="/stories/:slug/episodes/:episodeNumber" element={<EpisodeReaderPage />} />
           <Route path="/authors/:slug" element={<AuthorPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/badges" element={<BadgesPage />} />
+          <Route path="/referrals" element={<ReferralsPage />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/support" element={<SupportPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />

@@ -75,8 +75,8 @@ class SearchController extends Controller
         $ai = $this->aiSearch->search($data['query']);
 
         if ($ai['degraded'] || empty($ai['results'])) {
-            // OpenAI unavailable, unconfigured, or found nothing - native search never
-            // goes down because of it. The frontend can't tell the difference from the
+            // AI provider unavailable, unconfigured, or found nothing - native search
+            // never goes down because of it. The frontend can't tell the difference from the
             // response shape alone, which is intentional: it always gets *a* result set.
             return $this->fallbackToNativeSearch($data['query']);
         }

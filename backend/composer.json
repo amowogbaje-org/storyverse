@@ -9,7 +9,8 @@
         "guzzlehttp/guzzle": "^7.8",
         "firebase/php-jwt": "^7.0",
         "predis/predis": "^2.2",
-        "minishlink/web-push": "^9.0"
+        "minishlink/web-push": "^9.0",
+        "laravel/ai": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

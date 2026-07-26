@@ -9,6 +9,7 @@ use App\Notifications\OtpCodeNotification;
 use App\Notifications\WelcomeNotification;
 use App\Services\GeoDetectionService;
 use App\Services\JwtService;
+use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -22,6 +23,7 @@ class AuthController extends Controller
     public function __construct(
         private JwtService $jwt,
         private GeoDetectionService $geo,
+        private ReferralService $referrals,
     ) {}
 
     public function register(Request $request)
@@ -33,6 +35,7 @@ class AuthController extends Controller
             'accept_terms' => ['accepted'],
             'country_code' => ['nullable', 'string', 'size:2'],
             'browser_locale' => ['nullable', 'string'],
+            'referral_code' => ['nullable', 'string', 'max:12'],
         ], [
             'password.confirmed' => 'Password and confirmation do not match.',
             'accept_terms.accepted' => 'You must agree to the Terms of Service and Privacy Policy.',
@@ -82,6 +85,8 @@ class AuthController extends Controller
             'currency' => $geo['currency'],
             'role' => 'reader',
         ]);
+
+        $this->referrals->attribute($user, $data['referral_code'] ?? null);
 
         \App\Models\UserActivityEvent::create([
             'user_id' => $user->id,
@@ -139,6 +144,68 @@ class AuthController extends Controller
         return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
     }
 
+    /**
+     * Deliberately non-committal about whether this email has an account -
+     * unlike register()/login(), password reset is a prime target for account
+     * enumeration (an attacker probing "does this email exist"), so the
+     * response is identical either way: same message, same retry_after, sent
+     * in roughly the same time either way. Calling this again before the
+     * throttle clears is also how resending works - there's no separate
+     * resend endpoint for this flow.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $user = User::where('email', $data['email'])->whereNotNull('email_verified_at')->first();
+
+        if ($user && ! BlacklistedEmail::isBlacklisted($data['email'])) {
+            $this->issueOtp($user->email, 'password_reset');
+        }
+
+        return $this->ok([
+            'message' => "If an account with that email exists, we've sent a password reset code.",
+            'retry_after' => 60,
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'password.confirmed' => 'Password and confirmation do not match.',
+        ]);
+
+        $key = 'otp:'.$data['email'];
+        $hashed = cache()->get($key);
+
+        if (! $hashed || ! Hash::check($data['code'], $hashed)) {
+            return $this->error('invalid_otp', 'That code is invalid or expired.', 422);
+        }
+
+        $user = User::where('email', $data['email'])->first();
+
+        if (! $user) {
+            // Shouldn't happen in practice - forgotPassword() only ever issues a
+            // code for an email with a real account - but the OTP cache key is
+            // keyed by the email string alone, not a user id, so this is
+            // guarded rather than assumed.
+            return $this->error('invalid_otp', 'That code is invalid or expired.', 422);
+        }
+
+        cache()->forget($key);
+        cache()->forget('otp:throttle:'.$data['email']);
+
+        $user->update(['password' => Hash::make($data['password'])]);
+
+        return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+    }
+
     public function requestOtp(Request $request)
     {
         $data = $request->validate([
@@ -191,6 +258,7 @@ class AuthController extends Controller
             'code' => ['required', 'string'],
             'name' => ['nullable', 'string', 'max:255'], // used if verifying creates the account (passwordless/phone paths)
             'country_code' => ['nullable', 'string', 'size:2'],
+            'referral_code' => ['nullable', 'string', 'max:12'], // only relevant if this call creates the account (passwordless path)
         ]);
 
         $identifier = $data['email'] ?? $data['phone'];
@@ -212,6 +280,10 @@ class AuthController extends Controller
             ]
         );
 
+        if ($user->wasRecentlyCreated) {
+            $this->referrals->attribute($user, $data['referral_code'] ?? null);
+        }
+
         $wasUnverified = ! $user->email_verified_at;
 
         if ($wasUnverified) {
@@ -220,6 +292,8 @@ class AuthController extends Controller
             if ($user->email) {
                 $user->notify(new WelcomeNotification());
             }
+
+            $this->referrals->onReferredUserVerified($user);
         }
 
         // Verification succeeded - a stale resend throttle shouldn't block whatever
@@ -243,6 +317,7 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'credential' => ['required', 'string'],
+            'referral_code' => ['nullable', 'string', 'max:12'],
         ]);
 
         $payload = $this->verifyGoogleIdToken($data['credential']);
@@ -273,6 +348,13 @@ class AuthController extends Controller
                 'currency' => $geo['currency'],
                 'role' => 'reader',
             ]);
+
+            // Google accounts are verified the instant they're created - no separate
+            // OTP step - so attribution and the "verified" milestone check both
+            // happen right here, back to back, rather than at two different times
+            // like the email/password flow.
+            $this->referrals->attribute($user, $data['referral_code'] ?? null);
+            $this->referrals->onReferredUserVerified($user);
 
             \App\Models\UserActivityEvent::create([
                 'user_id' => $user->id,

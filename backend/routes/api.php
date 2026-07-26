@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\EpisodeController;
+use App\Http\Controllers\Api\Integrations\CraftProfessorExportController;
 use App\Http\Controllers\Api\InteractionController;
 use App\Http\Controllers\Api\PenNameController;
 use App\Http\Controllers\Api\SearchController;
@@ -11,6 +12,12 @@ use App\Http\Controllers\Api\StoryController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\WebhookController;
 use Illuminate\Support\Facades\Route;
+
+// Outside the /v1 group deliberately - this is a fixed external contract
+// (storyverse-api-docs.md, supplied by CraftProfessor) at exactly
+// /api/stories/{slug}/json, no version segment. Public, no auth, matching
+// the visibility of the public story page itself.
+Route::get('/stories/{slug}/json', [CraftProfessorExportController::class, 'show']);
 
 Route::prefix('v1')->group(function () {
 
@@ -22,6 +29,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/otp/request', [AuthController::class, 'requestOtp']);
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
+    Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword']);
+    Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
     Route::post('/auth/google', [AuthController::class, 'googleAuth']);
 
     // Auth - required
@@ -47,6 +56,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/me/badges', [BadgeController::class, 'mine']);
         Route::get('/me/badges/next', [BadgeController::class, 'next']);
+        Route::get('/me/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'mine']);
 
         Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);

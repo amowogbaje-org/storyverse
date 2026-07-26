@@ -132,6 +132,38 @@ The three re-engagement jobs (new-story recommendations, continue-reading
 reminders, "we missed you") are plain scheduled commands - see "Why no queue
 worker or scheduler daemon" below for how they run on cPanel.
 
+## CraftProfessor series export
+
+`GET /api/stories/{slug}/json` implements the contract in
+`storyverse-api-docs.md` (supplied by CraftProfessor). Two things worth
+knowing:
+
+- It's registered **outside** the `/v1` prefix everything else in this app
+  uses, since CraftProfessor's contract is a fixed path with no version
+  segment. If your production frontend and backend share one domain (rather
+  than a separate API subdomain), double-check that `/api/stories/*` on that
+  domain actually reaches the Laravel backend and isn't swallowed by the
+  frontend's static-file serving/.htaccess rewrite - a proxy rule may be
+  needed depending on how you've split the two.
+- Full episode `content` is capped at `CRAFTPROFESSOR_CONTENT_BATCH_SIZE`
+  (default 40) per call, not the whole series every time - see
+  `CraftProfessorExportController`'s docblock for why, and why that's safe per
+  the spec's own re-import behavior.
+
+## AI search (Laravel AI SDK)
+
+Native search never depends on this - see `AiSearchService`'s docblock. Setup:
+
+1. `composer require laravel/ai` (if the version in `composer.json` doesn't
+   resolve, just re-run this to let Composer pick the current version)
+2. `php artisan vendor:publish --provider="Laravel\Ai\AiServiceProvider"`
+3. `php artisan migrate` (creates the SDK's own conversation-storage tables -
+   unused by AiSearchService today, but needed for the package to work at all)
+4. Set `GEMINI_API_KEY` in `.env`. `AI_SEARCH_PROVIDER` (already defaults to
+   `gemini`) controls which provider `App\Ai\Agents\StorySearchAgent` uses -
+   switching to OpenAI later, once you have a key for it, is just changing
+   that value and setting `OPENAI_API_KEY` - no code change.
+
 ## If something doesn't boot
 
 - **500 error, blank page**: check `storage/logs/laravel.log` first. Almost

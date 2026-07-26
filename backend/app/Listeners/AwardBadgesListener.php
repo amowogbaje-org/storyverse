@@ -4,16 +4,18 @@ namespace App\Listeners;
 
 use App\Events\UserActivityLogged;
 use App\Models\Badge;
-use App\Models\Subscription;
-use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Notifications\BadgeUnlocked;
 use App\Services\BadgeMetricResolver;
+use App\Services\BonusAccessService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class AwardBadgesListener implements ShouldQueue
 {
-    public function __construct(private BadgeMetricResolver $resolver) {}
+    public function __construct(
+        private BadgeMetricResolver $resolver,
+        private BonusAccessService $bonusAccess,
+    ) {}
 
     public function handle(UserActivityLogged $event): void
     {
@@ -53,40 +55,9 @@ class AwardBadgesListener implements ShouldQueue
         // until rewards are turned on. Flip BADGE_REWARDS_ENABLED when ready;
         // nothing else about this flow needs to change.
         if (config('badges.rewards_enabled') && $badge->reward_type === 'bonus_access') {
-            $this->grantBonusAccess($user, $badge->reward_payload['free_premium_days'] ?? 0);
+            $this->bonusAccess->grant($user, $badge->reward_payload['free_premium_days'] ?? 0);
         }
 
         $user->notify(new BadgeUnlocked($badge));
-    }
-
-    private function grantBonusAccess(User $user, int $days): void
-    {
-        if ($days <= 0) {
-            return;
-        }
-
-        $active = $user->subscriptions()->where('status', 'active')->first();
-
-        if ($active) {
-            $active->update(['current_period_end' => $active->current_period_end->addDays($days)]);
-            return;
-        }
-
-        // No active subscription - grant a standalone time-boxed one. Uses the user's
-        // resolved plan for currency bookkeeping, priced at 0 since this is a reward,
-        // not a purchase; no Payment row is created for it.
-        $plan = SubscriptionPlan::where('country_code', $user->country_code)->first()
-            ?? SubscriptionPlan::where('country_code', 'US')->first();
-
-        Subscription::create([
-            'user_id' => $user->id,
-            'plan_id' => $plan?->id,
-            'gateway' => 'flutterwave', // placeholder - this subscription was never actually paid for via a gateway
-            'gateway_subscription_id' => null,
-            'locked_price' => 0,
-            'locked_currency' => $plan?->currency ?? 'USD',
-            'status' => 'active',
-            'current_period_end' => now()->addDays($days),
-        ]);
     }
 }

@@ -2,24 +2,22 @@
 
 namespace App\Services;
 
+use App\Ai\Agents\StorySearchAgent;
 use App\Models\Story;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
  * "AI search so users/readers can use AI to search for novels but this
  * shouldn't erase the native ways of searching" — per the project brief.
  * This is a separate service/endpoint from SearchController::native() by
- * design, so an OpenAI outage or slow response never touches native search.
+ * design, so an AI provider outage or slow response never touches native
+ * search - every failure here degrades to "no AI results", never an
+ * exception the caller has to handle specially.
  *
- * Approach: rather than a full embeddings pipeline (extra infra: a vector
- * column, a reindex job, a similarity search), this sends the catalog
- * directly to a chat completion and asks it to rank + explain matches. That's
- * the right tradeoff at "just starting out" catalog sizes (hundreds of
- * stories fit comfortably in one prompt) and is dramatically simpler to run
- * correctly. Once the catalog is large enough that one prompt can't hold it,
- * swap this for embeddings + pgvector (or Meilisearch's built-in AI search,
- * since laravel/scout + meilisearch-php are already in composer.json).
+ * Built on the Laravel AI SDK (see App\Ai\Agents\StorySearchAgent) rather than
+ * calling a provider's HTTP API directly - provider-agnostic by design, since
+ * which provider is actually in use (Gemini today) is configured, not
+ * hardcoded, and can change without touching this file.
  */
 class AiSearchService
 {
@@ -31,12 +29,6 @@ class AiSearchService
      */
     public function search(string $query): array
     {
-        $apiKey = config('services.openai.api_key');
-
-        if (! $apiKey) {
-            return ['results' => [], 'degraded' => true];
-        }
-
         $catalog = Story::where('status', 'published')
             ->with(['category', 'genres'])
             ->limit(self::MAX_CATALOG_SIZE)
@@ -55,25 +47,9 @@ class AiSearchService
         }
 
         try {
-            $response = Http::withToken($apiKey)
-                ->timeout(15)
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => 'gpt-4o-mini',
-                    'response_format' => ['type' => 'json_object'],
-                    'messages' => [
-                        ['role' => 'system', 'content' => $this->systemPrompt()],
-                        ['role' => 'user', 'content' => json_encode([
-                            'query' => $query,
-                            'catalog' => $catalog,
-                        ])],
-                    ],
-                ])
-                ->throw()
-                ->json();
+            $response = StorySearchAgent::make(catalog: $catalog)->prompt($query, timeout: 15);
 
-            $content = $response['choices'][0]['message']['content'] ?? '{}';
-            $parsed = json_decode($content, true);
-            $results = collect($parsed['results'] ?? [])
+            $results = collect($response['results'] ?? [])
                 ->filter(fn ($r) => isset($r['slug'], $r['reason']))
                 ->take(self::MAX_RESULTS)
                 ->values()
@@ -81,25 +57,13 @@ class AiSearchService
 
             return ['results' => $results, 'degraded' => false];
         } catch (\Throwable $e) {
+            // Covers a genuinely down provider, a missing/invalid API key for
+            // whichever provider is configured, a timeout, or a malformed
+            // structured-output response - caller falls back to native search
+            // either way, so the exact cause only matters for the log line.
             Log::warning('AI search failed, caller should fall back to native search', ['error' => $e->getMessage()]);
 
             return ['results' => [], 'degraded' => true];
         }
-    }
-
-    private function systemPrompt(): string
-    {
-        return <<<'PROMPT'
-        You are the search assistant for a serialized-fiction reading app. You'll receive
-        a JSON object with a "query" (a freeform description of what the reader wants to
-        read) and a "catalog" (published stories with title, description, category, genres).
-
-        Pick up to 10 stories from the catalog that best match the query, ranked best-first.
-        Only include stories that are genuinely relevant - if fewer than 10 fit, return fewer.
-        Never invent a story that isn't in the catalog.
-
-        Respond with strict JSON only, in this exact shape:
-        {"results": [{"slug": "story-slug", "reason": "one short sentence on why this fits"}]}
-        PROMPT;
     }
 }

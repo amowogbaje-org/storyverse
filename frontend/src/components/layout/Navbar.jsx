@@ -69,6 +69,7 @@ export default function Navbar() {
             >
               <Link to="/library" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>My library</Link>
               <Link to="/badges" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Badges</Link>
+              <Link to="/referrals" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Refer &amp; earn</Link>
               {["author", "admin"].includes(user?.role) && (
                 <Link to="/admin" className="block px-4 py-2.5 text-sm text-gold-600 hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Studio</Link>
               )}

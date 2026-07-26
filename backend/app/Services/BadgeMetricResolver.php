@@ -42,6 +42,7 @@ class BadgeMetricResolver
             'author_all_stories_read' => $this->hasCompletedAllStoriesForAnyAuthor($user),
             'all_categories_explored' => $this->hasExploredAllCategories($user),
             'bookmarked_before_trending' => $this->earlyBookmarksNowTrending($user),
+            'referrals_verified' => $user->referrals()->whereNotNull('email_verified_at')->count(),
             default => null,
         };
     }

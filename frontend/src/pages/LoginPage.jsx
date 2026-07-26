@@ -92,6 +92,9 @@ export default function LoginPage() {
           placeholder="Password"
           autoComplete="current-password"
         />
+        <div className="text-right">
+          <Link to="/forgot-password" className="text-xs text-teal-700 hover:underline">Forgot password?</Link>
+        </div>
         {error && <p className="text-sm text-ribbon-600">{error}</p>}
         <button
           type="submit" disabled={loading}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import api, { getToken, setToken, registerUnauthorizedHandler } from "../api/client";
+import { getStoredReferralCode, clearStoredReferralCode } from "../hooks/useReferralCapture";
 
 const AuthContext = createContext(null);
 
@@ -45,6 +46,7 @@ export function AuthProvider({ children }) {
     const { data } = await api.post("/auth/register", {
       ...payload,
       browser_locale: browserLocale,
+      referral_code: getStoredReferralCode(),
     });
     // Registration no longer returns a token directly — the account is created
     // unverified and an OTP is emailed. The caller (RegisterPage) is expected to
@@ -53,11 +55,12 @@ export function AuthProvider({ children }) {
   }
 
   async function verifyOtp({ email, code }) {
-    const { data } = await api.post("/auth/otp/verify", { email, code });
+    const { data } = await api.post("/auth/otp/verify", { email, code, referral_code: getStoredReferralCode() });
     const token = data.data?.token ?? data.token;
     if (token) {
       setToken(token);
       await fetchMe();
+      clearStoredReferralCode();
     }
     return data;
   }
@@ -67,11 +70,27 @@ export function AuthProvider({ children }) {
     return data;
   }
 
+  async function forgotPassword(email) {
+    const { data } = await api.post("/auth/password/forgot", { email });
+    return data;
+  }
+
+  async function resetPassword({ email, code, password, password_confirmation }) {
+    const { data } = await api.post("/auth/password/reset", { email, code, password, password_confirmation });
+    const token = data.data?.token ?? data.token;
+    if (token) {
+      setToken(token);
+      await fetchMe();
+    }
+    return data;
+  }
+
   async function loginWithGoogle(credential) {
-    const { data } = await api.post("/auth/google", { credential });
+    const { data } = await api.post("/auth/google", { credential, referral_code: getStoredReferralCode() });
     const token = data.data?.token ?? data.token;
     setToken(token);
     await fetchMe();
+    clearStoredReferralCode();
     return data;
   }
 
@@ -94,6 +113,8 @@ export function AuthProvider({ children }) {
     register,
     verifyOtp,
     resendOtp,
+    forgotPassword,
+    resetPassword,
     loginWithGoogle,
     logout,
     refresh: fetchMe,

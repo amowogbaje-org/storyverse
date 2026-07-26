@@ -43,6 +43,17 @@ class BadgeSeeder extends Seeder
             $this->b('Promoter', 'social', 'silver', 'shares_made', 10, 'recommendation'),
             $this->b('Hype Machine', 'social', 'gold', 'shares_made', 50, 'bonus_access', ['free_premium_days' => 3]),
 
+            // Referrals
+            $this->b('Recruiter', 'referrals', 'bronze', 'referrals_verified', 1),
+            $this->b('Ambassador', 'referrals', 'silver', 'referrals_verified', 5, 'recommendation'),
+            // The actual free-month reward for hitting 10 is granted directly by
+            // ReferralService regardless of config('badges.rewards_enabled') - this
+            // badge's own reward_type is 'none' so it doesn't also grant a second,
+            // separate reward through the generic badge-reward path once that's
+            // turned on.
+            $this->b('Super Referrer', 'referrals', 'gold', 'referrals_verified', 10),
+            $this->b('Referral Legend', 'referrals', 'platinum', 'referrals_verified', 25, 'recommendation'),
+
             // Spending / Subscription
             $this->b('First Unlock', 'spending', 'bronze', 'cumulative_spend', 1),
             $this->b('Supporter', 'spending', 'bronze', 'premium_months_consecutive', 1),
@@ -139,6 +150,7 @@ class BadgeSeeder extends Seeder
             'all_categories_explored' => 'Read at least one story from every category on the platform.',
             'bookmarked_before_trending' => "Bookmark {$value} {$story} while it still had very few views, before it went on to become one of the platform's most-viewed.",
             'shares_made' => "Share {$value} {$story} or {$ep}, to WhatsApp, Facebook, X, LinkedIn, or anywhere else.",
+            'referrals_verified' => "Refer {$value} verified ".Str::plural('reader', $value)." to Storyverse using your referral link.",
             default => "Earn the {$value} required for this badge.",
         };
     }

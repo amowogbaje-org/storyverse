@@ -15,6 +15,7 @@ class Episode extends Model
 
     protected $casts = [
         'published_at' => 'datetime',
+        'content_synced_at' => 'datetime',
     ];
 
     public function story(): BelongsTo
