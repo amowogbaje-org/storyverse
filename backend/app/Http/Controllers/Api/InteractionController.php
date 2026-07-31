@@ -106,7 +106,7 @@ class InteractionController extends Controller
         $user = $this->requireUser($request);
 
         $paginator = $user->belongsToMany(Story::class, 'story_bookmarks')
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->cursorPaginate(20);
 
         $ids = collect($paginator->items())->pluck('id');
@@ -125,7 +125,7 @@ class InteractionController extends Controller
             ->distinct('story_id')
             ->pluck('story_id');
 
-        $stories = Story::whereIn('id', $storyIds)->with(['penName', 'category'])->get();
+        $stories = Story::whereIn('id', $storyIds)->with(['penName', 'categories'])->get();
         $ids = $stories->pluck('id');
         $progress = \App\Support\StoryCardPresenter::progressMap($user, $ids);
         $liked = \App\Support\StoryCardPresenter::likedMap($user, $ids);

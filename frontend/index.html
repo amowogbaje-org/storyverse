@@ -2,9 +2,73 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#14101F" />
+
+    <!--
+      SEO:START / SEO:END mark the block that scripts/prerender-stories.mjs
+      (postbuild) replaces per-page for story/episode URLs, so a social-media
+      unfurler or a search engine that doesn't execute JavaScript still sees
+      the real title/description/image for that specific story - the <Seo>
+      component (react-helmet-async) only updates these tags client-side
+      after React mounts, which non-JS crawlers never see. Every other route
+      just gets this generic version as-is. Do not reorder/remove the
+      comments without updating that script to match.
+    -->
+    <!-- SEO:START -->
     <title>Storyverse — Read stories worth staying up for</title>
+    <meta name="description" content="Read serialized fiction across every genre on Storyverse. Save your favorites, pick up right where you left off, and discover your next obsession." />
+    <meta property="og:site_name" content="Storyverse" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Storyverse — Read stories worth staying up for" />
+    <meta property="og:description" content="Read serialized fiction across every genre on Storyverse. Save your favorites, pick up right where you left off, and discover your next obsession." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- SEO:END -->
+
+    <!--
+      Site-wide entity/brand structured data (as opposed to the per-page
+      Book/Chapter/BreadcrumbList data the Seo component adds) - helps search
+      engines recognize "Storyverse" as a distinct site/brand rather than just
+      a collection of unrelated pages, and is what a sitelinks searchbox (the
+      search box Google sometimes shows directly under a brand's result) is
+      keyed off. Update the SearchAction target if the search page's query
+      param name ever changes from "q".
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Storyverse",
+        "url": "%VITE_SITE_URL%",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "%VITE_SITE_URL%/search?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+
+    <!--
+      Search engine site verification (Google Search Console, Bing Webmaster
+      Tools, etc.) - uncomment and fill in once you've registered the site
+      with each. Needed to submit the sitemap and see indexing status/search
+      performance; the sitemap existing on its own doesn't get discovered
+      automatically without this.
+    -->
+    <!-- <meta name="google-site-verification" content="PASTE_VALUE_FROM_SEARCH_CONSOLE" /> -->
+    <!-- <meta name="msvalidate.01" content="PASTE_VALUE_FROM_BING_WEBMASTER_TOOLS" /> -->
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icons/favicon-64.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Storyverse" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,7 +78,13 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- APP:START / APP:END mark where the postbuild prerenderer injects a
+         basic server-rendered content snapshot (title, description, cover,
+         episode list) for story/episode pages, so there's real readable
+         content in the initial HTML instead of an empty shell. React
+         replaces it the moment it mounts - this is a one-time visual
+         placeholder for non-JS visitors/crawlers, not real hydration. -->
+    <div id="root"><!-- APP:START --><!-- APP:END --></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

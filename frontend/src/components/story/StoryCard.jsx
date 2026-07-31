@@ -48,8 +48,9 @@ export default function StoryCard({ story, view = "grid" }) {
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink-900">
         <img
           src={story.cover_image_url || FALLBACK_COVER}
-          alt=""
+          alt={story.title}
           loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
         />
         <AccessBadge story={story} />

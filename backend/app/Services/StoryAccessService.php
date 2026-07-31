@@ -8,10 +8,17 @@ use App\Models\User;
 
 class StoryAccessService
 {
-    public const GUEST_LIMIT = 2;
-    private const REGISTERED_PREMIUM_LIMIT = 5;
-
     public function __construct(private PlatformMetricsService $metrics) {}
+
+    public function guestLimit(): int
+    {
+        return (int) config('access.guest_episode_limit');
+    }
+
+    private function registeredPremiumLimit(): int
+    {
+        return (int) config('access.registered_premium_episode_limit');
+    }
 
     /**
      * Returns null = unlimited access, or an int = max episode_number accessible.
@@ -35,10 +42,10 @@ class StoryAccessService
         }
 
         if (! $user) {
-            return self::GUEST_LIMIT;
+            return $this->guestLimit();
         }
 
-        return $story->access_type === 'free' ? null : self::REGISTERED_PREMIUM_LIMIT;
+        return $story->access_type === 'free' ? null : $this->registeredPremiumLimit();
     }
 
     public function canAccessEpisode(Story $story, Episode $episode, ?User $user): bool

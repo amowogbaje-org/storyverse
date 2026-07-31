@@ -20,7 +20,8 @@ class EpisodeController extends Controller
     {
         $user = $this->currentUser($request);
 
-        // Episodes 1-2 (StoryAccessService::GUEST_LIMIT) are the platform-wide
+        // Episodes 1-2 (StoryAccessService::guestLimit(), configurable) are the
+        // platform-wide
         // free preview: every guest and every signed-in reader can always read
         // them, on every story, regardless of subscription state or monetization
         // thresholds - the same bytes go out to every single reader. That makes
@@ -29,7 +30,7 @@ class EpisodeController extends Controller
         // entirely. Uses only the plain Cache facade (no redis-only features
         // like tags), so this works unchanged whether CACHE_STORE is redis
         // (Docker/cloud) or file/database (cPanel, where redis isn't available).
-        $cacheable = $episodeNumber <= StoryAccessService::GUEST_LIMIT;
+        $cacheable = $episodeNumber <= $this->access->guestLimit();
 
         $payload = $cacheable
             ? Cache::remember(
@@ -46,7 +47,7 @@ class EpisodeController extends Controller
         // Rehydrated without hitting the DB (Model::make() just sets attributes) -
         // the access-check methods only ever read plain attributes/ids off these,
         // never relations, so this is safe even on a cache hit. Still runs the
-        // real check rather than assuming episodes 1-2 pass: if GUEST_LIMIT is
+        // real check rather than assuming episodes 1-2 pass: if guestLimit() is
         // ever lowered, this keeps blocking correctly instead of silently
         // trusting a now-stale assumption.
         $story = Story::make($payload['story']);

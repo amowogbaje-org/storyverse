@@ -29,7 +29,7 @@ class SearchController extends Controller
                 $query->where('title', 'ilike', "%{$q}%")
                     ->orWhere('description', 'ilike', "%{$q}%");
             })
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->limit(20)
             ->get();
 
@@ -86,7 +86,7 @@ class SearchController extends Controller
 
         $stories = Story::where('status', 'published')
             ->whereIn('slug', $slugs)
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->get()
             ->sortBy(fn (Story $s) => $slugs->search($s->slug))
             ->values();
@@ -111,7 +111,7 @@ class SearchController extends Controller
             ->where(function ($q) use ($query) {
                 $q->where('title', 'ilike', "%{$query}%")->orWhere('description', 'ilike', "%{$query}%");
             })
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->limit(10)
             ->get();
 

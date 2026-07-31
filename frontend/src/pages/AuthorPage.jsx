@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useAuthor, useAuthorStories } from "../hooks/queries/useAuthor";
 import StoryCard from "../components/story/StoryCard";
+import TipWidget from "../components/story/TipWidget";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import EmptyState from "../components/common/EmptyState";
 import Container from "../components/common/Container";
@@ -25,6 +26,10 @@ export default function AuthorPage() {
           <h1 className="font-display text-2xl font-semibold text-ink-950">{author.display_name}</h1>
           <p className="text-sm text-ink-500">{author.bio}</p>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <TipWidget penNameSlug={slug} displayName={author.display_name} />
       </div>
 
       <h2 className="mb-3 mt-8 font-display text-lg font-semibold text-ink-950">Stories</h2>

@@ -1,7 +1,38 @@
 import api from "../api/client";
 
+/**
+ * @returns {"ok"|"unsupported_browser"|"insecure_context"|"not_configured"}
+ *
+ * These three failure modes get conflated into one "not supported" message
+ * far too often, which is actively misleading: a modern Chrome on a real
+ * device almost certainly *does* support the Push API - if this returns
+ * anything other than "ok" on a phone/desktop Chrome, it's overwhelmingly
+ * more likely to be "not_configured" (VITE_VAPID_PUBLIC_KEY missing from the
+ * build, or the frontend just hasn't been rebuilt since it was set) than an
+ * actual browser limitation.
+ */
+export function getPushSupportStatus() {
+  // Service workers and the Push API are only exposed in secure contexts
+  // (HTTPS, or localhost for local dev) - on plain HTTP, `serviceWorker` and
+  // `PushManager` won't exist at all even in a fully capable browser, which
+  // looks identical to "unsupported" unless you check this separately.
+  if (!window.isSecureContext) {
+    return "insecure_context";
+  }
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return "unsupported_browser";
+  }
+
+  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+    return "not_configured";
+  }
+
+  return "ok";
+}
+
 export function isPushSupported() {
-  return "serviceWorker" in navigator && "PushManager" in window && Boolean(import.meta.env.VITE_VAPID_PUBLIC_KEY);
+  return getPushSupportStatus() === "ok";
 }
 
 // Web push subscriptions need the VAPID public key as a raw Uint8Array, but

@@ -57,10 +57,10 @@ class BadgeMetricResolver
     private function distinctCategoriesRead(User $user): int
     {
         return DB::table('reading_progress')
-            ->join('stories', 'stories.id', '=', 'reading_progress.story_id')
+            ->join('category_story', 'category_story.story_id', '=', 'reading_progress.story_id')
             ->where('reading_progress.user_id', $user->id)
-            ->distinct('stories.category_id')
-            ->count('stories.category_id');
+            ->distinct('category_story.category_id')
+            ->count('category_story.category_id');
     }
 
     private function distinctGenresRead(User $user): int

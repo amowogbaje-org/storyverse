@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAdminStory, useAdminEpisodes } from "../../hooks/queries/useAdmin";
+import { useCategories, useGenres } from "../../hooks/queries/useStories";
 import {
   useUpdateStory, usePublishStory, useUnpublishStory,
   useCreateEpisode, useUpdateEpisode, usePublishEpisode,
   useUploadCoverImage,
 } from "../../hooks/mutations/useAdminMutations";
+import SearchableMultiSelect from "../../components/admin/SearchableMultiSelect";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 export default function AdminStoryEditorPage() {
   const { id } = useParams();
   const { data: storyData, isLoading } = useAdminStory(id, true);
   const { data: episodesData } = useAdminEpisodes(id, true);
+  const { data: categoriesData } = useCategories();
+  const { data: genresData } = useGenres();
   const updateStory = useUpdateStory(id);
   const publishStory = usePublishStory(id);
   const unpublishStory = useUnpublishStory(id);
@@ -22,12 +26,17 @@ export default function AdminStoryEditorPage() {
 
   const story = storyData?.data;
   const episodes = episodesData?.data ?? [];
+  const categories = categoriesData?.data ?? [];
+  const genres = genresData?.data ?? [];
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [coverMode, setCoverMode] = useState("url"); // "url" | "upload"
   const [coverError, setCoverError] = useState(null);
+  const [categoryIds, setCategoryIds] = useState([]);
+  const [genreIds, setGenreIds] = useState([]);
+  const [taxonomyError, setTaxonomyError] = useState(null);
   const fileInputRef = useRef(null);
 
   const [newEpisodeTitle, setNewEpisodeTitle] = useState("");
@@ -41,6 +50,8 @@ export default function AdminStoryEditorPage() {
       setTitle(story.title);
       setDescription(story.description);
       setCoverImageUrl(story.cover_image_url ?? "");
+      setCategoryIds((story.categories ?? []).map((c) => c.id));
+      setGenreIds((story.genres ?? []).map((g) => g.id));
     }
   }, [story?.id]);
 
@@ -49,7 +60,14 @@ export default function AdminStoryEditorPage() {
 
   function saveDetails(e) {
     e.preventDefault();
-    updateStory.mutate({ title, description, cover_image_url: coverImageUrl });
+    setTaxonomyError(null);
+
+    if (categoryIds.length === 0) {
+      setTaxonomyError("Pick at least one category.");
+      return;
+    }
+
+    updateStory.mutate({ title, description, cover_image_url: coverImageUrl, category_ids: categoryIds, genre_ids: genreIds });
   }
 
   async function handleFileSelected(e) {
@@ -133,7 +151,7 @@ export default function AdminStoryEditorPage() {
           <label className="mb-1 block text-xs font-medium text-ink-500">Cover image</label>
           <div className="flex gap-3">
             {coverImageUrl && (
-              <img src={coverImageUrl} alt="Cover preview" className="h-28 w-20 shrink-0 rounded-card border border-ink-950/10 object-cover" />
+              <img src={coverImageUrl} alt="Cover preview" loading="lazy" className="h-28 w-20 shrink-0 rounded-card border border-ink-950/10 object-cover" />
             )}
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex gap-1 rounded-full border border-ink-950/15 p-0.5 text-xs font-medium">
@@ -173,6 +191,24 @@ export default function AdminStoryEditorPage() {
             </div>
           </div>
         </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SearchableMultiSelect
+            label="Categories (at least one)"
+            placeholder="Search categories…"
+            options={categories}
+            selectedIds={categoryIds}
+            onChange={setCategoryIds}
+          />
+          <SearchableMultiSelect
+            label="Genres (optional)"
+            placeholder="Search genres…"
+            options={genres}
+            selectedIds={genreIds}
+            onChange={setGenreIds}
+          />
+        </div>
+        {taxonomyError && <p className="text-sm text-ribbon-600">{taxonomyError}</p>}
 
         <button type="submit" disabled={updateStory.isPending}
           className="rounded-card bg-ink-950 px-4 py-2 text-sm font-medium text-parchment-50 disabled:opacity-50">

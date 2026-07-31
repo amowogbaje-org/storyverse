@@ -20,10 +20,10 @@ class StoryController extends Controller
     {
         $query = Story::query()
             ->where('status', 'published')
-            ->with(['penName', 'category', 'genres']);
+            ->with(['penName', 'categories', 'genres']);
 
         if ($category = $request->query('category')) {
-            $query->whereHas('category', fn ($q) => $q->where('slug', $category));
+            $query->whereHas('categories', fn ($q) => $q->where('slug', $category));
         }
 
         if ($genre = $request->query('genre')) {
@@ -62,7 +62,7 @@ class StoryController extends Controller
         // the cached payload and applied fresh below.
         $stories = HomeCache::remember(HomeCache::NEW_RELEASES_KEY, fn () => Story::where('status', 'published')
             ->orderByDesc('published_at')
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->limit(10)
             ->get());
 
@@ -79,7 +79,7 @@ class StoryController extends Controller
     {
         $stories = HomeCache::remember(HomeCache::POPULAR_KEY, fn () => Story::where('status', 'published')
             ->orderByDesc('views_count')
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->limit(10)
             ->get());
 
@@ -96,7 +96,7 @@ class StoryController extends Controller
     {
         $story = Story::where('slug', $slug)
             ->where('status', 'published')
-            ->with(['penName', 'category', 'genres', 'publishedEpisodes'])
+            ->with(['penName', 'categories', 'genres', 'publishedEpisodes'])
             ->firstOrFail();
 
         $user = $this->currentUser($request);

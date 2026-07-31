@@ -5,6 +5,7 @@ import SectionHeader from "../components/common/SectionHeader";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Container from "../components/common/Container";
 import WelcomeBanner from "../components/common/WelcomeBanner";
+import Seo from "../components/common/Seo";
 import NextBadges from "../components/badges/NextBadges";
 
 function StoryRow({ stories }) {
@@ -25,6 +26,7 @@ export default function HomePage() {
 
   return (
     <Container className="py-6">
+      <Seo path="/" />
       <WelcomeBanner />
       <NextBadges variant="compact" limit={1} />
       <section className="mb-10 overflow-hidden rounded-card bg-ink-950 px-6 py-10 text-parchment-50 sm:px-10 sm:py-14">

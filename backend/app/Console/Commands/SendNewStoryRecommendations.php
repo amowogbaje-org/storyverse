@@ -35,17 +35,19 @@ class SendNewStoryRecommendations extends Command
         $recentStories = Story::where('status', 'published')
             ->where('published_at', '>=', now()->subDay())
             ->where('published_at', '<', now())
-            ->with('category')
+            ->with('categories')
             ->get();
 
         $sent = 0;
 
         foreach ($recentStories as $story) {
-            if (! $story->category_id) {
+            $categoryIds = $story->categories->pluck('id');
+
+            if ($categoryIds->isEmpty()) {
                 continue;
             }
 
-            $candidates = $this->interestedReaders($story);
+            $candidates = $this->interestedReaders($story, $categoryIds);
 
             foreach ($candidates->shuffle() as $user) {
                 $cooldownKey = "notif:recommend:{$user->id}";
@@ -70,12 +72,14 @@ class SendNewStoryRecommendations extends Command
     }
 
     /**
-     * Readers who've liked, bookmarked, or completed a story in the same
-     * category before - "interest" - excluding anyone who's already
-     * interacted with this exact story (they don't need a recommendation for
-     * something they've already found).
+     * Readers who've liked, bookmarked, or completed a story sharing any of
+     * this story's categories before - "interest" - excluding anyone who's
+     * already interacted with this exact story (they don't need a
+     * recommendation for something they've already found). A story can
+     * belong to more than one category, so this matches on any overlap
+     * rather than a single equality check.
      */
-    private function interestedReaders(Story $story)
+    private function interestedReaders(Story $story, \Illuminate\Support\Collection $categoryIds)
     {
         $alreadyEngaged = DB::table('reading_progress')->where('story_id', $story->id)->pluck('user_id')
             ->merge(DB::table('story_likes')->where('story_id', $story->id)->pluck('user_id'))
@@ -83,19 +87,19 @@ class SendNewStoryRecommendations extends Command
             ->unique();
 
         $interestedIds = DB::table('story_likes')
-            ->join('stories', 'stories.id', '=', 'story_likes.story_id')
-            ->where('stories.category_id', $story->category_id)
+            ->join('category_story', 'category_story.story_id', '=', 'story_likes.story_id')
+            ->whereIn('category_story.category_id', $categoryIds)
             ->pluck('story_likes.user_id')
             ->merge(
                 DB::table('story_bookmarks')
-                    ->join('stories', 'stories.id', '=', 'story_bookmarks.story_id')
-                    ->where('stories.category_id', $story->category_id)
+                    ->join('category_story', 'category_story.story_id', '=', 'story_bookmarks.story_id')
+                    ->whereIn('category_story.category_id', $categoryIds)
                     ->pluck('story_bookmarks.user_id')
             )
             ->merge(
                 DB::table('reading_progress')
-                    ->join('stories', 'stories.id', '=', 'reading_progress.story_id')
-                    ->where('stories.category_id', $story->category_id)
+                    ->join('category_story', 'category_story.story_id', '=', 'reading_progress.story_id')
+                    ->whereIn('category_story.category_id', $categoryIds)
                     ->whereNotNull('reading_progress.completed_at')
                     ->pluck('reading_progress.user_id')
             )

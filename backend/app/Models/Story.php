@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Story extends Model
 {
     protected $fillable = [
-        'pen_name_id', 'category_id', 'title', 'slug', 'description',
+        'pen_name_id', 'title', 'slug', 'description',
         'cover_image_url', 'status', 'access_type', 'is_completed',
         'episodes_count', 'views_count', 'likes_count', 'bookmarks_count',
         'comments_count', 'shares_count', 'published_at',
@@ -26,9 +26,9 @@ class Story extends Model
         return $this->belongsTo(PenName::class);
     }
 
-    public function category(): BelongsTo
+    public function categories(): BelongsToMany
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsToMany(Category::class, 'category_story');
     }
 
     public function genres(): BelongsToMany

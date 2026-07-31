@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Tip;
 use App\Services\PaymentGatewayRegistry;
 use App\Services\PaymentGatewayService;
+use App\Services\TipService;
 use Illuminate\Http\Request;
 
 /**
@@ -19,6 +21,7 @@ class WebhookController extends Controller
     public function __construct(
         private PaymentGatewayRegistry $gateways,
         private PaymentGatewayService $paymentGateway,
+        private TipService $tips,
     ) {}
 
     public function handle(Request $request, string $gateway)
@@ -39,10 +42,20 @@ class WebhookController extends Controller
         $reference = $gatewayImpl->extractSuccessfulReference($request);
 
         if ($reference) {
+            // Subscription payments and tips share the same tx_ref/reference
+            // namespace per gateway, so whichever table actually has a pending
+            // row for this reference is the one this webhook event is for -
+            // check both rather than needing the payload to say which kind it is.
             $payment = Payment::where('gateway', $gateway)->where('gateway_reference', $reference)->first();
 
             if ($payment) {
                 $this->paymentGateway->activateSubscription($payment);
+            } else {
+                $tip = Tip::where('gateway', $gateway)->where('gateway_reference', $reference)->first();
+
+                if ($tip) {
+                    $this->tips->markSuccessful($tip);
+                }
             }
         }
 

@@ -53,12 +53,17 @@ uploaded over SSH by `.github/workflows/ci.yml` (the `deploy-cpanel` job).
 | `CPANEL_BACKEND_PATH` | `/home/myuser/storyverse-backend` |
 | `CPANEL_FRONTEND_PATH` | `/home/myuser/public_html` |
 
-And one repo **variable** (not secret, it's not sensitive): `VITE_API_URL` set to
-your API subdomain, e.g. `https://api.yourdomain.com/api/v1`.
+And one repo **variable** (not secret, it's not sensitive): `BACKEND_URL` set to
+your API subdomain, e.g. `api.yourdomain.com` (no `https://`, no path - `ci.yml`
+builds the full `VITE_API_URL` from it).
 
-Also add `VAPID_PUBLIC_KEY` as a repo **variable** (again, not secret - it's the
-public half of the push-notification key pair, meant to ship to the browser) once
-you've generated it - see "Push notifications" below.
+Also add:
+- `SITE_URL` - your main domain, e.g. `yourdomain.com` (no `https://`). Used to
+  build canonical links, Open Graph tags, and `sitemap.xml`/`robots.txt` at
+  build time - see "SEO" below.
+- `VAPID_PUBLIC_KEY` as a repo **variable** (again, not secret - it's the
+  public half of the push-notification key pair, meant to ship to the browser)
+  once you've generated it - see "Push notifications" below.
 
 ## Every push to `main` after that
 
@@ -164,7 +169,86 @@ Native search never depends on this - see `AiSearchService`'s docblock. Setup:
    switching to OpenAI later, once you have a key for it, is just changing
    that value and setting `OPENAI_API_KEY` - no code change.
 
+## SEO
+
+- `frontend/scripts/generate-seo-files.mjs` runs automatically before every
+  `npm run build` (npm's `prebuild` lifecycle hook) and writes
+  `public/sitemap.xml` + `public/robots.txt` by walking the real public
+  `/stories` endpoint - so they only ever list what's actually published, and
+  never need hand-maintaining.
+- **Trade-off worth knowing**: since these are static files generated at
+  build time, the sitemap only reflects stories that existed at the last
+  deploy. A new story published between deploys won't be in it until the next
+  build - fine for a normal "publish stories, occasionally redeploy the app"
+  cadence, but if stories go up far more often than the app gets redeployed,
+  consider adding a scheduled (cron) CI run that just does the frontend build
+  step to refresh these on their own.
+- Per-page metadata (title, description, canonical link, Open Graph, JSON-LD)
+  goes through the `<Seo>` component (`frontend/src/components/common/Seo.jsx`)
+  - already wired into the homepage, story pages, and episode pages. Add it to
+    any other page worth indexing distinctly.
+- `SITE_URL` (see the repo variables above) has to be set correctly for any of
+  this to point at the right domain - canonical/OG URLs and the sitemap's
+  `<loc>` entries are all built from it.
+- **Why there's also a `postbuild` prerender step**: `<Seo>` only updates
+  `<title>`/meta tags *after* React mounts - invisible to anything that
+  doesn't run JavaScript, which is most social-media link unfurlers
+  (WhatsApp, X, iMessage, Slack) and some search engines. `npm run build`
+  now also runs `scripts/prerender-stories.mjs` afterward, which writes a real
+  static `dist/stories/{slug}/index.html` per story (and per episode) with
+  the correct title/description/image/JSON-LD already baked in, using the
+  built `index.html` as a template. Real visitors still get the full SPA -
+  the same JS bundle tag is in these files, so React mounts normally and
+  takes over from there. See the comment at the top of that script for the
+  mechanics (the `SEO:START`/`APP:START` markers in `index.html` it looks for).
+- Once the site is live: register it with **Google Search Console** and
+  **Bing Webmaster Tools**, submit `sitemap.xml` in each, and uncomment the
+  matching verification `<meta>` tag in `index.html` (both are there,
+  commented out, waiting for the value each service gives you). Nothing here
+  gets discovered on its own without this step.
+- After deploying, spot-check a story URL through
+  [Google's Rich Results Test](https://search.google.com/test/rich-results)
+  and a link unfurler (paste the URL into a WhatsApp/Slack message to
+  yourself) to confirm the prerendered tags actually show up correctly.
+
+## PWA (installable app)
+
+- `frontend/public/manifest.webmanifest` + the icon set in
+  `frontend/public/icons/` - regenerate the icons if you want real branded
+  artwork instead of the placeholder book glyph currently there.
+- The service worker (`frontend/src/sw.js`) does double duty: push
+  notifications (see above) *and* offline app-shell caching, bundled together
+  by `vite-plugin-pwa` in `injectManifest` mode. If you ever need a from-scratch
+  Workbox `generateSW` setup instead, you'd lose the custom push-handling code
+  that lives in this file - keep them merged rather than replacing it.
+- Install prompting: `frontend/src/components/common/InstallPrompt.jsx` shows
+  a custom "Install Storyverse" banner on Android/desktop Chrome/Edge (via
+  `beforeinstallprompt`), and a manual "Add to Home Screen" hint on iOS Safari,
+  which never fires that event at all. Dismissing either snoozes it for 14 days
+  (stored in localStorage, not tied to an account).
+- Test installability with Chrome DevTools → Application → Manifest, which
+  flags anything missing (icons, `start_url`, etc.) - useful after changing
+  the manifest.
+
+## Performance
+
+- Route-level code splitting (`React.lazy()` in `App.jsx`) - only the
+  homepage is eagerly bundled; every other page, including the entire admin
+  panel and its charting library, loads as its own chunk on first visit to
+  that route, not on initial page load.
+- Static asset caching/compression is in `frontend/public/.htaccess`
+  (long-lived immutable caching for hashed JS/CSS/images, `no-cache` on
+  `index.html`/the service worker so deploys are actually visible) and
+  `backend/public/.htaccess` (gzip on JSON API responses). Both only apply on
+  Apache (cPanel) - if you ever move to nginx, the equivalent directives need
+  to be added to its config instead, `.htaccess` does nothing there.
+- The homepage/episode-preview caching from the "Caching" section above and
+  the code-splitting here are complementary, not overlapping: one reduces
+  database load, the other reduces what the browser downloads.
+
 ## If something doesn't boot
+
+
 
 - **500 error, blank page**: check `storage/logs/laravel.log` first. Almost
   always either `APP_KEY` not set (`php artisan key:generate`) or `storage/`

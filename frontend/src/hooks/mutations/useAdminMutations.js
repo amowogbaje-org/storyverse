@@ -100,3 +100,19 @@ export function useRemoveFromBlacklist() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "email-blacklist"] }),
   });
 }
+
+export function useMarkPayoutPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/admin/payouts/${id}/mark-paid`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "payouts"] }),
+  });
+}
+
+export function useSendPayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/admin/payouts/${id}/send`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "payouts"] }),
+  });
+}

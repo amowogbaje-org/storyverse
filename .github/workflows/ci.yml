@@ -36,6 +36,7 @@ jobs:
         env:
           VITE_API_URL: https://${{ vars.BACKEND_URL }}/api/v1
           VITE_VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          VITE_SITE_URL: https://${{ vars.SITE_URL }}
 
       - name: Deploy backend via rsync
         env:

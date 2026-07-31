@@ -30,14 +30,14 @@ class AiSearchService
     public function search(string $query): array
     {
         $catalog = Story::where('status', 'published')
-            ->with(['category', 'genres'])
+            ->with(['categories', 'genres'])
             ->limit(self::MAX_CATALOG_SIZE)
             ->get()
             ->map(fn (Story $s) => [
                 'slug' => $s->slug,
                 'title' => $s->title,
                 'description' => $s->description,
-                'category' => $s->category?->name,
+                'categories' => $s->categories->pluck('name'),
                 'genres' => $s->genres->pluck('name'),
                 'access_type' => $s->access_type,
             ]);

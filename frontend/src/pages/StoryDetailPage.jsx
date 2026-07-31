@@ -7,6 +7,7 @@ import ShareMenu from "../components/story/ShareMenu";
 import EpisodeList from "../components/reader/EpisodeList";
 import CommentList from "../components/comments/CommentList";
 import CommentForm from "../components/comments/CommentForm";
+import Seo from "../components/common/Seo";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Container from "../components/common/Container";
 
@@ -23,10 +24,27 @@ export default function StoryDetailPage() {
 
   return (
     <Container className="py-6">
+      <Seo
+        title={story.title}
+        description={story.description}
+        image={story.cover_image_url}
+        path={`/stories/${slug}`}
+        type="book"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Book",
+          name: story.title,
+          description: story.description,
+          image: story.cover_image_url,
+          author: { "@type": "Person", name: story.author_display_name },
+          genre: (story.categories ?? []).map((c) => c.name).join(", "),
+        }}
+      />
       <div className="flex flex-col gap-6 sm:flex-row">
         <img
           src={story.cover_image_url}
-          alt=""
+          alt={story.title}
+          fetchpriority="high"
           className="mx-auto h-64 w-44 shrink-0 rounded-card object-cover shadow-card sm:mx-0"
         />
         <div className="min-w-0 flex-1">
@@ -41,9 +59,9 @@ export default function StoryDetailPage() {
           </Link>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {story.category_name && (
-              <span className="rounded-full bg-ink-950/8 px-2.5 py-0.5 text-xs text-ink-700">{story.category_name}</span>
-            )}
+            {(story.categories ?? []).map((c) => (
+              <span key={c.slug} className="rounded-full bg-gold-400/20 px-2.5 py-0.5 text-xs font-medium text-gold-700">{c.name}</span>
+            ))}
             {(story.genres ?? []).map((g) => (
               <span key={g.slug} className="rounded-full bg-ink-950/8 px-2.5 py-0.5 text-xs text-ink-700">{g.name}</span>
             ))}

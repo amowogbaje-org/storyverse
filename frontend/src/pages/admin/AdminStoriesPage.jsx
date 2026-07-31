@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAdminStories, useAdminPenNames } from "../../hooks/queries/useAdmin";
-import { useCategories } from "../../hooks/queries/useStories";
+import { useCategories, useGenres } from "../../hooks/queries/useStories";
 import { useCreateStory } from "../../hooks/mutations/useAdminMutations";
+import SearchableMultiSelect from "../../components/admin/SearchableMultiSelect";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import EmptyState from "../../components/common/EmptyState";
 
@@ -10,15 +11,18 @@ export default function AdminStoriesPage() {
   const { data, isLoading } = useAdminStories(true);
   const { data: penNamesData } = useAdminPenNames(true);
   const { data: categoriesData } = useCategories();
+  const { data: genresData } = useGenres();
   const createStory = useCreateStory();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    pen_name_id: "", category_id: "", title: "", description: "", cover_image_url: "", access_type: "free",
+    pen_name_id: "", category_ids: [], genre_ids: [], title: "", description: "", cover_image_url: "", access_type: "free",
   });
+  const [error, setError] = useState(null);
 
   const stories = data?.data ?? [];
   const penNames = penNamesData?.data ?? [];
   const categories = categoriesData?.data ?? [];
+  const genres = genresData?.data ?? [];
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -26,11 +30,19 @@ export default function AdminStoriesPage() {
 
   function submit(e) {
     e.preventDefault();
+    setError(null);
+
+    if (form.category_ids.length === 0) {
+      setError("Pick at least one category.");
+      return;
+    }
+
     createStory.mutate(form, {
       onSuccess: () => {
         setShowForm(false);
-        setForm({ pen_name_id: "", category_id: "", title: "", description: "", cover_image_url: "", access_type: "free" });
+        setForm({ pen_name_id: "", category_ids: [], genre_ids: [], title: "", description: "", cover_image_url: "", access_type: "free" });
       },
+      onError: (err) => setError(err.response?.data?.error?.message || "Couldn't create the story."),
     });
   }
 
@@ -49,15 +61,26 @@ export default function AdminStoriesPage() {
       {showForm && (
         <form onSubmit={submit} className="grid gap-3 rounded-card border border-ink-950/10 bg-white/60 p-4 sm:grid-cols-2">
           <select required value={form.pen_name_id} onChange={(e) => update("pen_name_id", e.target.value)}
-            className="rounded-card border border-ink-950/15 bg-white px-3 py-2 text-sm">
+            className="rounded-card border border-ink-950/15 bg-white px-3 py-2 text-sm sm:col-span-2">
             <option value="">Pen name…</option>
             {penNames.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
           </select>
-          <select required value={form.category_id} onChange={(e) => update("category_id", e.target.value)}
-            className="rounded-card border border-ink-950/15 bg-white px-3 py-2 text-sm">
-            <option value="">Category…</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+
+          <SearchableMultiSelect
+            label="Categories (at least one)"
+            placeholder="Search categories…"
+            options={categories}
+            selectedIds={form.category_ids}
+            onChange={(ids) => update("category_ids", ids)}
+          />
+          <SearchableMultiSelect
+            label="Genres (optional)"
+            placeholder="Search genres…"
+            options={genres}
+            selectedIds={form.genre_ids}
+            onChange={(ids) => update("genre_ids", ids)}
+          />
+
           <input required value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="Title"
             className="rounded-card border border-ink-950/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
           <input required value={form.cover_image_url} onChange={(e) => update("cover_image_url", e.target.value)} placeholder="Cover image URL"
@@ -69,8 +92,9 @@ export default function AdminStoriesPage() {
             <option value="free">Free</option>
             <option value="premium">Premium</option>
           </select>
+          {error && <p className="text-sm text-ribbon-600 sm:col-span-2">{error}</p>}
           <button type="submit" disabled={createStory.isPending}
-            className="rounded-card bg-gold-500 py-2 text-sm font-semibold text-ink-950 disabled:opacity-50">
+            className="rounded-card bg-gold-500 py-2 text-sm font-semibold text-ink-950 disabled:opacity-50 sm:col-span-2">
             {createStory.isPending ? "Creating…" : "Create draft"}
           </button>
         </form>

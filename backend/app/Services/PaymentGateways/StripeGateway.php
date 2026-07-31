@@ -3,6 +3,7 @@
 namespace App\Services\PaymentGateways;
 
 use App\Contracts\PaymentGateway;
+use App\Models\PenName;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Support\CheckoutSession;
@@ -34,6 +35,31 @@ class StripeGateway implements PaymentGateway
                 'success_url' => config('app.frontend_url').'/subscription?status=success',
                 'cancel_url' => config('app.frontend_url').'/subscription?status=cancelled',
                 'metadata' => ['user_id' => $user->id, 'plan_id' => $plan->id],
+            ])
+            ->throw()
+            ->json();
+
+        return new CheckoutSession($response['url'], $response['id']);
+    }
+
+    public function createTipCheckoutSession(User $tipper, PenName $penName, float $amount, string $currency): CheckoutSession
+    {
+        $response = Http::asForm()
+            ->withToken(config('services.stripe.secret'))
+            ->post('https://api.stripe.com/v1/checkout/sessions', [
+                'mode' => 'payment',
+                'customer_email' => $tipper->email,
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => strtolower($currency),
+                        'product_data' => ['name' => "Tip for {$penName->display_name}"],
+                        'unit_amount' => (int) round($amount * 100),
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url' => config('app.frontend_url')."/authors/{$penName->slug}?tip=success",
+                'cancel_url' => config('app.frontend_url')."/authors/{$penName->slug}?tip=cancelled",
+                'metadata' => ['tipper_id' => $tipper->id, 'pen_name_id' => $penName->id, 'kind' => 'tip'],
             ])
             ->throw()
             ->json();

@@ -21,3 +21,8 @@ Schedule::command('app:send-analytics-summary')->dailyAt('08:00');
 Schedule::command('app:send-new-story-recommendations')->dailyAt('09:00');
 Schedule::command('app:send-continue-reading-reminders')->dailyAt('09:15');
 Schedule::command('app:send-we-missed-you-notifications')->dailyAt('09:30');
+
+// A day after month-end, not exactly on the 1st, so last month's data
+// (a renewal or a completed read logged in its final minutes) has settled.
+// See GenerateMonthlyPayouts's docblock for the full reasoning.
+Schedule::command('app:generate-monthly-payouts')->monthlyOn(2, '02:00');

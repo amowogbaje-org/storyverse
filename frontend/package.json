@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-seo-files.mjs",
     "build": "vite build",
+    "postbuild": "node scripts/prerender-stories.mjs",
     "preview": "vite preview",
     "lint": "eslint ."
   },
@@ -15,11 +17,17 @@
     "react-router-dom": "^6.26.2",
     "@tanstack/react-query": "^5.59.0",
     "axios": "^1.7.7",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "react-helmet-async": "^2.0.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",
     "vite": "^5.4.8",
+    "vite-plugin-pwa": "^0.20.5",
+    "workbox-precaching": "^7.1.0",
+    "workbox-routing": "^7.1.0",
+    "workbox-strategies": "^7.1.0",
+    "workbox-expiration": "^7.1.0",
     "tailwindcss": "^3.4.13",
     "postcss": "^8.4.47",
     "autoprefixer": "^10.4.20"

@@ -3,14 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Category extends Model
 {
     protected $fillable = ["name", "slug", "description"];
 
-    public function stories(): HasMany
+    public function stories(): BelongsToMany
     {
-        return $this->hasMany(Story::class);
+        return $this->belongsToMany(Story::class, "category_story");
     }
 }

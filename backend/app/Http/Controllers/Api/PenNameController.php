@@ -28,7 +28,7 @@ class PenNameController extends Controller
 
         $paginator = $penName->stories()
             ->where('status', 'published')
-            ->with(['penName', 'category'])
+            ->with(['penName', 'categories'])
             ->orderByDesc('published_at')
             ->cursorPaginate(20);
 

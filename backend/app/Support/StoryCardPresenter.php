@@ -33,6 +33,7 @@ class StoryCardPresenter
             'id' => $story->id,
             'title' => $story->title,
             'slug' => $story->slug,
+            'published_at' => $story->published_at,
             'description' => $story->description,
             'cover_image_url' => $story->cover_image_url,
             'access_type' => $story->access_type,
@@ -42,7 +43,10 @@ class StoryCardPresenter
             'bookmarks_count' => $story->bookmarks_count,
             'comments_count' => $story->comments_count,
             'shares_count' => $story->shares_count,
-            'category_name' => $story->category?->name,
+            'categories' => $story->relationLoaded('categories')
+                ? $story->categories->map(fn ($c) => ['slug' => $c->slug, 'name' => $c->name])
+                : [],
+            'category_name' => $story->relationLoaded('categories') ? $story->categories->pluck('name')->implode(', ') : null,
             'author_display_name' => $story->penName?->display_name,
             'author_slug' => $story->penName?->slug,
             'reader_progress_percent' => isset($progressByStory[$story->id]) ? round($progressByStory[$story->id]) : null,

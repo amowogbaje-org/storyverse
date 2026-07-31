@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
 import UpsellBanner from "../components/reader/UpsellBanner";
 import ShareMenu from "../components/story/ShareMenu";
+import Seo from "../components/common/Seo";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Container from "../components/common/Container";
 
@@ -88,6 +89,20 @@ export default function EpisodeReaderPage() {
 
   return (
     <Container className="max-w-2xl py-6 pb-24">
+      <Seo
+        title={`${story.title} — Episode ${episode?.episode_number}: ${episode?.title}`}
+        description={story.description}
+        image={story.cover_image_url}
+        path={`/stories/${slug}/episodes/${num}`}
+        type="article"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Chapter",
+          isPartOf: { "@type": "Book", name: story.title },
+          name: episode?.title,
+          position: episode?.episode_number,
+        }}
+      />
       <Link to={`/stories/${slug}`} className="text-sm text-teal-700 hover:underline">← {story.title}</Link>
       <div className="mt-2 flex items-start justify-between gap-3">
         <h1 className="font-display text-2xl font-semibold text-ink-950">

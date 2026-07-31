@@ -2,6 +2,7 @@
 
 namespace App\Contracts;
 
+use App\Models\PenName;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Support\CheckoutSession;
@@ -21,6 +22,13 @@ interface PaymentGateway
 
     /** Create a hosted checkout session with the provider and return where to send the reader. */
     public function createCheckoutSession(User $user, SubscriptionPlan $plan): CheckoutSession;
+
+    /**
+     * Create a hosted checkout session for a one-off tip to an author - not
+     * tied to a subscription plan, so the amount/currency are whatever the
+     * tipper picked rather than coming from a Plan record.
+     */
+    public function createTipCheckoutSession(User $tipper, PenName $penName, float $amount, string $currency): CheckoutSession;
 
     /** Verify the incoming webhook request actually came from this provider. */
     public function verifySignature(Request $request): bool;

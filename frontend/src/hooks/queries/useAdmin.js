@@ -81,3 +81,11 @@ export function useAdminEmailBlacklist(enabled) {
     enabled,
   });
 }
+
+export function useAdminPayouts(status, enabled) {
+  return useQuery({
+    queryKey: ["admin", "payouts", status],
+    queryFn: async () => (await api.get("/admin/payouts", { params: status ? { status } : {} })).data,
+    enabled,
+  });
+}

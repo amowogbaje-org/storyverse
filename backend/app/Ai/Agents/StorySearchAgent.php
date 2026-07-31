@@ -39,7 +39,7 @@ class StorySearchAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
-    /** @param Collection<int, array{slug: string, title: string, description: ?string, category: ?string, genres: mixed, access_type: string}> $catalog */
+    /** @param Collection<int, array{slug: string, title: string, description: ?string, categories: mixed, genres: mixed, access_type: string}> $catalog */
     public function __construct(public Collection $catalog) {}
 
     public function instructions(): Stringable|string
@@ -48,7 +48,8 @@ class StorySearchAgent implements Agent, HasStructuredOutput
         You are the search assistant for a serialized-fiction reading app.
 
         Below is the current catalog of published stories, as JSON (slug, title,
-        description, category, genres, access_type):
+        description, categories, genres, access_type - a story can belong to more
+        than one category and genre):
 
         {$this->catalog->toJson()}
 

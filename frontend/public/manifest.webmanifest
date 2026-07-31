@@ -1,0 +1,22 @@
+{
+  "name": "Storyverse — Read stories worth staying up for",
+  "short_name": "Storyverse",
+  "description": "Read serialized fiction across every genre, save your favorites, and pick up right where you left off.",
+  "start_url": "/?source=pwa",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#14101F",
+  "theme_color": "#14101F",
+  "categories": ["books", "entertainment", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New releases", "url": "/browse?sort=new", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "My badges", "url": "/badges", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

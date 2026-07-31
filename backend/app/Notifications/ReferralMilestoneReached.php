@@ -45,6 +45,6 @@ class ReferralMilestoneReached extends Notification
             ->line("You've now referred {$this->verifiedCount} verified readers to Storyverse.")
             ->line("We've added {$this->freeDaysGranted} days of premium access to your account, starting today.")
             ->line('Keep sharing your link - every 10 verified referrals earns another free month.')
-            ->action('See your referral progress', url('/referrals'));
+            ->action('See your referral progress', config('app.frontend_url').'/referrals');
     }
 }

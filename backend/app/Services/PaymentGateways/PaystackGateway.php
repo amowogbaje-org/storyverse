@@ -3,6 +3,7 @@
 namespace App\Services\PaymentGateways;
 
 use App\Contracts\PaymentGateway;
+use App\Models\PenName;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Support\CheckoutSession;
@@ -29,6 +30,25 @@ class PaystackGateway implements PaymentGateway
                 'reference' => $reference,
                 'callback_url' => config('app.frontend_url').'/subscription?status=success',
                 'metadata' => ['user_id' => $user->id, 'plan_id' => $plan->id],
+            ])
+            ->throw()
+            ->json();
+
+        return new CheckoutSession($response['data']['authorization_url'], $reference);
+    }
+
+    public function createTipCheckoutSession(User $tipper, PenName $penName, float $amount, string $currency): CheckoutSession
+    {
+        $reference = 'tip_'.Str::uuid();
+
+        $response = Http::withToken(config('services.paystack.secret_key'))
+            ->post('https://api.paystack.co/transaction/initialize', [
+                'email' => $tipper->email,
+                'amount' => (int) round($amount * 100),
+                'currency' => $currency,
+                'reference' => $reference,
+                'callback_url' => config('app.frontend_url')."/authors/{$penName->slug}?tip=success",
+                'metadata' => ['tipper_id' => $tipper->id, 'pen_name_id' => $penName->id, 'kind' => 'tip'],
             ])
             ->throw()
             ->json();

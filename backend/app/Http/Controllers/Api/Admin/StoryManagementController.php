@@ -14,7 +14,7 @@ class StoryManagementController extends Controller
     {
         $user = $this->requireUser($request);
 
-        $query = Story::with(['penName', 'category', 'genres'])->withCount('episodes');
+        $query = Story::with(['penName', 'categories', 'genres'])->withCount('episodes');
 
         if ($user->role !== 'admin') {
             $query->whereIn('pen_name_id', $user->penNames()->pluck('id'));
@@ -27,7 +27,7 @@ class StoryManagementController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $story = $this->ownedStoryOrFail($request, $id, ['penName', 'category', 'genres', 'episodes']);
+        $story = $this->ownedStoryOrFail($request, $id, ['penName', 'categories', 'genres', 'episodes']);
 
         return $this->ok($story);
     }
@@ -38,7 +38,8 @@ class StoryManagementController extends Controller
 
         $data = $request->validate([
             'pen_name_id' => ['required', 'exists:pen_names,id'],
-            'category_id' => ['required', 'exists:categories,id'],
+            'category_ids' => ['required', 'array', 'min:1'],
+            'category_ids.*' => ['exists:categories,id'],
             'genre_ids' => ['sometimes', 'array'],
             'genre_ids.*' => ['exists:genres,id'],
             'title' => ['required', 'string', 'max:255'],
@@ -50,16 +51,18 @@ class StoryManagementController extends Controller
         $this->assertOwnsPenName($user, (int) $data['pen_name_id']);
 
         $story = Story::create([
-            ...collect($data)->except('genre_ids')->all(),
+            ...collect($data)->except(['genre_ids', 'category_ids'])->all(),
             'slug' => $this->uniqueSlug($data['title']),
             'status' => 'draft',
         ]);
+
+        $story->categories()->sync($data['category_ids']);
 
         if (! empty($data['genre_ids'])) {
             $story->genres()->sync($data['genre_ids']);
         }
 
-        return $this->ok($story->load(['penName', 'category', 'genres']), 201);
+        return $this->ok($story->load(['penName', 'categories', 'genres']), 201);
     }
 
     public function update(Request $request, int $id)
@@ -67,7 +70,8 @@ class StoryManagementController extends Controller
         $story = $this->ownedStoryOrFail($request, $id);
 
         $data = $request->validate([
-            'category_id' => ['sometimes', 'exists:categories,id'],
+            'category_ids' => ['sometimes', 'array', 'min:1'],
+            'category_ids.*' => ['exists:categories,id'],
             'genre_ids' => ['sometimes', 'array'],
             'genre_ids.*' => ['exists:genres,id'],
             'title' => ['sometimes', 'string', 'max:255'],
@@ -77,7 +81,11 @@ class StoryManagementController extends Controller
             'is_completed' => ['sometimes', 'boolean'],
         ]);
 
-        $story->update(collect($data)->except('genre_ids')->all());
+        $story->update(collect($data)->except(['genre_ids', 'category_ids'])->all());
+
+        if (array_key_exists('category_ids', $data)) {
+            $story->categories()->sync($data['category_ids']);
+        }
 
         if (array_key_exists('genre_ids', $data)) {
             $story->genres()->sync($data['genre_ids']);
@@ -85,15 +93,20 @@ class StoryManagementController extends Controller
 
         \App\Support\HomeCache::forgetHomepage();
 
-        return $this->ok($story->fresh(['penName', 'category', 'genres']));
+        return $this->ok($story->fresh(['penName', 'categories', 'genres']));
     }
 
     public function publish(Request $request, int $id)
     {
         $story = $this->ownedStoryOrFail($request, $id, ['publishedEpisodes']);
+        $minEpisodes = (int) config('access.min_episodes_to_publish');
 
-        if ($story->publishedEpisodes->isEmpty()) {
-            return $this->error('no_published_episodes', 'Publish at least one episode before publishing the story.', 422);
+        if ($story->publishedEpisodes->count() < $minEpisodes) {
+            return $this->error(
+                'insufficient_episodes',
+                "Publish at least {$minEpisodes} episodes before publishing the story (currently {$story->publishedEpisodes->count()}). This gives readers enough of the story to really get hooked before they hit anything asking for payment.",
+                422
+            );
         }
 
         $story->update(['status' => 'published', 'published_at' => $story->published_at ?? now()]);

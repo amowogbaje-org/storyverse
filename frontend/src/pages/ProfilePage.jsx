@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
 import Container from "../components/common/Container";
-import { isPushSupported, subscribeToPush, unsubscribeFromPush, getCurrentPushSubscription } from "../utils/push";
+import Seo from "../components/common/Seo";
+import { isPushSupported, getPushSupportStatus, subscribeToPush, unsubscribeFromPush, getCurrentPushSubscription } from "../utils/push";
+import PayoutAccountSettings from "../components/settings/PayoutAccountSettings";
 
 const CURRENCIES = [
   { code: "USD", label: "USD ($) — United States" },
   { code: "GBP", label: "GBP (£) — United Kingdom" },
   { code: "NGN", label: "NGN (₦) — Nigeria" },
 ];
+
+const PUSH_UNSUPPORTED_REASONS = {
+  insecure_context: "Push requires a secure connection (HTTPS) - this page isn't loaded over one right now.",
+  unsupported_browser: "This browser doesn't support push notifications.",
+  not_configured: "Push isn't set up on this server yet (missing configuration) - this isn't a browser limitation.",
+};
 
 const NOTIFICATION_TYPES = [
   { key: "new_story_push", label: "New story recommendations", hint: "Based on categories you've liked, bookmarked, or finished." },
@@ -30,6 +38,8 @@ export default function ProfilePage() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState(null);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const [prefs, setPrefs] = useState({});
   const [prefBusyKey, setPrefBusyKey] = useState(null);
 
@@ -55,6 +65,22 @@ export default function ProfilePage() {
         : "Couldn't update push notifications. Please try again.");
     } finally {
       setPushBusy(false);
+    }
+  }
+
+  async function sendTestPush() {
+    setTestBusy(true);
+    setTestResult(null);
+    try {
+      const { data } = await api.post("/me/push-subscriptions/test");
+      setTestResult({ ok: true, message: data.data.message });
+    } catch (err) {
+      setTestResult({
+        ok: false,
+        message: err.response?.data?.error?.message || "Couldn't reach the server to test push.",
+      });
+    } finally {
+      setTestBusy(false);
     }
   }
 
@@ -117,6 +143,7 @@ export default function ProfilePage() {
 
   return (
     <Container className="max-w-md py-10">
+      <Seo title="Settings" noindex />
       <h1 className="font-display text-2xl font-semibold text-ink-950">Settings</h1>
 
       <form onSubmit={save} className="mt-6 space-y-4">
@@ -149,7 +176,18 @@ export default function ProfilePage() {
         </button>
       </form>
 
-      <div className="mt-6 rounded-card border border-ink-950/10 bg-white/40 p-4">
+      <Link
+        to="/referrals"
+        className="mt-4 flex items-center justify-between gap-3 rounded-card border border-gold-500/40 bg-gold-400/10 p-4 hover:bg-gold-400/20"
+      >
+        <div>
+          <p className="text-sm font-medium text-ink-950">Refer friends, earn premium</p>
+          <p className="mt-0.5 text-xs text-ink-600">Get your referral link and track your progress toward a free month.</p>
+        </div>
+        <span className="shrink-0 text-ink-500">→</span>
+      </Link>
+
+      <div className="mt-4 rounded-card border border-ink-950/10 bg-white/40 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-ink-950">Push notifications</p>
@@ -169,10 +207,43 @@ export default function ProfilePage() {
               {pushBusy ? "…" : pushEnabled ? "Turn off" : "Turn on"}
             </button>
           ) : (
-            <span className="shrink-0 text-xs text-ink-400">Not supported in this browser</span>
+            <span className="shrink-0 text-right text-xs text-ink-400">
+              {PUSH_UNSUPPORTED_REASONS[getPushSupportStatus()]}
+            </span>
           )}
         </div>
         {pushError && <p className="mt-2 text-xs text-ribbon-600">{pushError}</p>}
+
+        {isPushSupported() && user.role === "admin" && (
+          <div className="mt-3 border-t border-ink-950/8 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-ink-500">
+                <span className="font-medium text-ink-600">Admin diagnostic.</span> Browser permission:{" "}
+                <span className="font-medium text-ink-700">{Notification.permission}</span>
+                {Notification.permission === "denied" && (
+                  <span className="block text-ribbon-600">
+                    Blocked at the browser level - the "Turn on" toggle can't override this. Check this site's
+                    notification permission in your browser settings and allow it, then try again.
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={sendTestPush}
+                disabled={testBusy || !pushEnabled}
+                className="shrink-0 rounded-full border border-ink-950/15 px-3 py-1 text-xs font-medium text-ink-700 disabled:opacity-50"
+              >
+                {testBusy ? "Sending…" : "Send test notification"}
+              </button>
+            </div>
+            {!pushEnabled && (
+              <p className="mt-1 text-xs text-ink-400">Turn push on above first, then you can test it here.</p>
+            )}
+            {testResult && (
+              <p className={`mt-2 text-xs ${testResult.ok ? "text-teal-700" : "text-ribbon-600"}`}>{testResult.message}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 rounded-card border border-ink-950/10 bg-white/40 p-4">
@@ -208,6 +279,8 @@ export default function ProfilePage() {
           })}
         </ul>
       </div>
+
+      {(user.role === "author" || user.role === "admin") && <PayoutAccountSettings />}
 
       {/* {user.role === "reader" && (
         <div className="mt-6 rounded-card border border-gold-500/40 bg-gold-400/10 p-4">

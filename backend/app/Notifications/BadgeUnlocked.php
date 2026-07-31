@@ -62,6 +62,6 @@ class BadgeUnlocked extends Notification
             ->subject("You earned the \"{$this->badge->name}\" badge!")
             ->line("Congratulations - you've unlocked the {$this->badge->tier} badge \"{$this->badge->name}\".")
             ->line($this->badge->description)
-            ->action('View your badges', url('/badges'));
+            ->action('View your badges', config('app.frontend_url').'/badges');
     }
 }

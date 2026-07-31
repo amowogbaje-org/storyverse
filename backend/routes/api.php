@@ -57,8 +57,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/me/badges', [BadgeController::class, 'mine']);
         Route::get('/me/badges/next', [BadgeController::class, 'next']);
         Route::get('/me/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'mine']);
+        Route::get('/me/payouts', [\App\Http\Controllers\Api\PayoutController::class, 'mine']);
+        Route::patch('/me/payout-account', [\App\Http\Controllers\Api\PayoutController::class, 'updateAccount']);
 
         Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
+        Route::post('/authors/{slug}/tip', [\App\Http\Controllers\Api\TipController::class, 'checkout']);
         Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);
         Route::post('/me/subscription/cancel', [SubscriptionController::class, 'cancel']);
 
@@ -69,6 +72,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'store']);
         Route::delete('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'destroy']);
+        Route::post('/me/push-subscriptions/test', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'test']);
     });
 
     // Catalog / discovery - optional auth (locked flags / is_liked_by_me depend on auth state,
@@ -122,6 +126,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/emails/blacklist', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'store']);
         Route::get('/emails/blacklist/add', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'storeViaGet']);
         Route::delete('/emails/blacklist/{email}', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'destroy']);
+
+        Route::get('/payouts', [\App\Http\Controllers\Api\PayoutController::class, 'index']);
+        Route::post('/payouts/{id}/mark-paid', [\App\Http\Controllers\Api\PayoutController::class, 'markPaid']);
+        Route::post('/payouts/{id}/send', [\App\Http\Controllers\Api\PayoutController::class, 'send']);
     });
 
     // Content management panel - authors manage their own stories, admins manage anyone's

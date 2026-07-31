@@ -4,6 +4,7 @@ namespace App\Channels;
 
 use App\Services\WebPushService;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Laravel resolves a channel referenced in a Notification's via() either from
@@ -27,6 +28,19 @@ class WebPushChannel
             return;
         }
 
-        $this->webPush->sendToUser($notifiable, $notification->toWebPush($notifiable));
+        $result = $this->webPush->sendToUser($notifiable, $notification->toWebPush($notifiable));
+
+        // "No subscription" is the ordinary, expected case for anyone who's never
+        // turned push on - not worth logging every time. Anything else (missing
+        // VAPID config, an actual delivery failure) is worth a low-volume trace,
+        // since this channel has no other way to surface it - see
+        // PushSubscriptionController::test() for the on-demand, user-facing version.
+        if ($result['sent'] === 0 && $result['failed'] > 0) {
+            Log::info('WebPushChannel: notification not delivered', [
+                'user_id' => $notifiable->id,
+                'notification' => $notification::class,
+                'errors' => $result['errors'],
+            ]);
+        }
     }
 }

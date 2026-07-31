@@ -19,4 +19,9 @@ class PenName extends Model
     {
         return $this->hasMany(Story::class);
     }
+
+    public function tips(): HasMany
+    {
+        return $this->hasMany(Tip::class);
+    }
 }

@@ -18,6 +18,7 @@ class User extends Authenticatable
         "currency", "avatar_url", "role", "email_verified_at",
         "current_streak_days", "last_streak_date", "last_active_at", "notification_preferences",
         "referred_by", "referral_reward_tier_claimed",
+        "payout_account_name", "payout_account_number", "payout_bank_name", "payout_bank_code",
     ];
 
     protected $hidden = ["password", "google_id"];
@@ -87,6 +88,11 @@ class User extends Authenticatable
     public function badges(): HasMany
     {
         return $this->hasMany(UserBadge::class);
+    }
+
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(Payout::class);
     }
 
     public function referrer(): BelongsTo
