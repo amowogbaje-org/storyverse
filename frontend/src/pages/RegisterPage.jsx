@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
@@ -7,7 +7,7 @@ import OtpForm from "../components/auth/OtpForm";
 import GoogleButton from "../components/auth/GoogleButton";
 
 export default function RegisterPage() {
-  const { register, verifyOtp, resendOtp } = useAuth();
+  const { register, verifyOtp, resendOtp, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "", password_confirmation: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -16,6 +16,14 @@ export default function RegisterPage() {
   const [pendingEmail, setPendingEmail] = useState(null);
   const [retryAfter, setRetryAfter] = useState(60);
   const [notice, setNotice] = useState(null);
+
+  // Same reasoning as LoginPage: don't show the register form to someone
+  // who's already signed in.
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -85,7 +93,7 @@ export default function RegisterPage() {
       </p>
 
       <div className="mt-6">
-        <GoogleButton onError={setError} label="signup_with" />
+        <GoogleButton onError={setError} onSuccess={() => navigate("/")} label="signup_with" />
       </div>
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-500">

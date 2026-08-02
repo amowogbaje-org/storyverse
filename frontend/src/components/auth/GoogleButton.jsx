@@ -9,7 +9,7 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
  * into our div — we just hand it a client ID and a callback for the
  * resulting ID token, which we forward to the backend for verification.
  */
-export default function GoogleButton({ onError, label = "signin_with" }) {
+export default function GoogleButton({ onError, onSuccess, label = "signin_with" }) {
   const { loginWithGoogle } = useAuth();
   const divRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -26,7 +26,12 @@ export default function GoogleButton({ onError, label = "signin_with" }) {
         client_id: CLIENT_ID,
         callback: async ({ credential }) => {
           try {
-            await loginWithGoogle(credential);
+            const data = await loginWithGoogle(credential);
+            // Unlike the native email/password form, nothing here used to
+            // navigate away on success — the user stayed on /login or
+            // /register even though they were now signed in. Callers pass
+            // onSuccess to redirect, same as the native submit() handlers do.
+            onSuccess?.(data);
           } catch (err) {
             onError?.(err.response?.data?.error?.message || "Google sign-in failed. Please try again.");
           }
@@ -63,7 +68,7 @@ export default function GoogleButton({ onError, label = "signin_with" }) {
         clearTimeout(timeout);
       };
     }
-  }, [loginWithGoogle, onError, label]);
+  }, [loginWithGoogle, onError, onSuccess, label]);
 
   if (!CLIENT_ID) return null;
 

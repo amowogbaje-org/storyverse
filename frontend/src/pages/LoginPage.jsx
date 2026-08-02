@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
@@ -7,7 +7,7 @@ import GoogleButton from "../components/auth/GoogleButton";
 import OtpForm from "../components/auth/OtpForm";
 
 export default function LoginPage() {
-  const { login, verifyOtp, resendOtp } = useAuth();
+  const { login, verifyOtp, resendOtp, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [email, setEmail] = useState("");
@@ -16,6 +16,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
   const [retryAfter, setRetryAfter] = useState(60);
+
+  // If a user lands on /login while already signed in (bookmark, back
+  // button, stale tab, or after a Google sign-in that only updated auth
+  // state without navigating), send them on instead of showing the form.
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(params.get("next") || "/", { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate, params]);
 
   async function submit(e) {
     e.preventDefault();
@@ -71,7 +80,11 @@ export default function LoginPage() {
       <p className="mt-1 text-sm text-ink-500">Sign in to keep reading, liking, and bookmarking.</p>
 
       <div className="mt-6">
-        <GoogleButton onError={setError} label="signin_with" />
+        <GoogleButton
+          onError={setError}
+          onSuccess={() => navigate(params.get("next") || "/")}
+          label="signin_with"
+        />
       </div>
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-500">

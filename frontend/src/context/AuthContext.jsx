@@ -34,15 +34,21 @@ export function AuthProvider({ children }) {
   // matching the backend's GeoDetectionService fallback chain.
   const browserLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
 
-  async function login(email, password) {
+  // NOTE: wrapped in useCallback so identity stays stable across re-renders.
+  // Consumers like GoogleButton depend on `loginWithGoogle` inside a
+  // useEffect — without useCallback, a brand new function was created on
+  // every AuthProvider render, which re-triggered that effect and
+  // re-initialized the Google Identity Services button on every unrelated
+  // re-render. That was the source of the Google sign-in "hiccups".
+  const login = useCallback(async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
     const token = data.data?.token ?? data.token;
     setToken(token);
     await fetchMe();
     return data;
-  }
+  }, [fetchMe]);
 
-  async function register(payload) {
+  const register = useCallback(async (payload) => {
     const { data } = await api.post("/auth/register", {
       ...payload,
       browser_locale: browserLocale,
@@ -52,9 +58,9 @@ export function AuthProvider({ children }) {
     // unverified and an OTP is emailed. The caller (RegisterPage) is expected to
     // show an OTP step and call verifyOtp() to actually get a session.
     return data;
-  }
+  }, [browserLocale]);
 
-  async function verifyOtp({ email, code }) {
+  const verifyOtp = useCallback(async ({ email, code }) => {
     const { data } = await api.post("/auth/otp/verify", { email, code, referral_code: getStoredReferralCode() });
     const token = data.data?.token ?? data.token;
     if (token) {
@@ -63,19 +69,19 @@ export function AuthProvider({ children }) {
       clearStoredReferralCode();
     }
     return data;
-  }
+  }, [fetchMe]);
 
-  async function resendOtp({ email, purpose = "verify" }) {
+  const resendOtp = useCallback(async ({ email, purpose = "verify" }) => {
     const { data } = await api.post("/auth/otp/request", { email, purpose });
     return data;
-  }
+  }, []);
 
-  async function forgotPassword(email) {
+  const forgotPassword = useCallback(async (email) => {
     const { data } = await api.post("/auth/password/forgot", { email });
     return data;
-  }
+  }, []);
 
-  async function resetPassword({ email, code, password, password_confirmation }) {
+  const resetPassword = useCallback(async ({ email, code, password, password_confirmation }) => {
     const { data } = await api.post("/auth/password/reset", { email, code, password, password_confirmation });
     const token = data.data?.token ?? data.token;
     if (token) {
@@ -83,18 +89,18 @@ export function AuthProvider({ children }) {
       await fetchMe();
     }
     return data;
-  }
+  }, [fetchMe]);
 
-  async function loginWithGoogle(credential) {
+  const loginWithGoogle = useCallback(async (credential) => {
     const { data } = await api.post("/auth/google", { credential, referral_code: getStoredReferralCode() });
     const token = data.data?.token ?? data.token;
     setToken(token);
     await fetchMe();
     clearStoredReferralCode();
     return data;
-  }
+  }, [fetchMe]);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
     } catch {
@@ -102,7 +108,7 @@ export function AuthProvider({ children }) {
     }
     setToken(null);
     setUser(null);
-  }
+  }, []);
 
   const value = {
     user,
