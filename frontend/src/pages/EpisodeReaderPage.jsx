@@ -4,6 +4,7 @@ import { useEpisode, useStory } from "../hooks/queries/useStories";
 import { useRecordProgress } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
+import { useAccessLimits } from "../hooks/queries/usePlatformStatus";
 import { useReadAloud } from "../hooks/useReadAloud";
 import UpsellBanner from "../components/reader/UpsellBanner";
 import ReadAloudBar from "../components/reader/ReadAloudBar";
@@ -16,6 +17,7 @@ export default function EpisodeReaderPage() {
   const { slug, episodeNumber } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const limits = useAccessLimits();
   const { data: storyData } = useStory(slug);
   const { data: episodeData, isLoading } = useEpisode(slug, episodeNumber);
   const recordProgress = useRecordProgress(slug, episodeNumber);
@@ -36,7 +38,7 @@ export default function EpisodeReaderPage() {
   // reader actually has access to it, same rule the ← →  links below respect.
   const readAloud = useReadAloud(episode?.content, {
     onEnd: () => {
-      if (autoAdvance && next && story && canAccessEpisode(story, next, user)) {
+      if (autoAdvance && next && story && canAccessEpisode(story, next, user, limits)) {
         navigate(`/stories/${slug}/episodes/${next.episode_number}`);
       }
     },
@@ -99,10 +101,10 @@ export default function EpisodeReaderPage() {
 
   if (isLoading || !story) return <LoadingSpinner label="Loading episode" />;
 
-  if (!canAccessEpisode(story, { episode_number: num }, user)) {
+  if (!canAccessEpisode(story, { episode_number: num }, user, limits)) {
     return (
       <Container className="py-10">
-        <UpsellBanner reason={lockReason(story, { episode_number: num }, user)} />
+        <UpsellBanner reason={lockReason(story, { episode_number: num }, user, limits)} />
       </Container>
     );
   }

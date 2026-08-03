@@ -49,16 +49,15 @@ class PushSubscriptionController extends Controller
      * being: if it doesn't, this says *why* (no VAPID keys on the server, no
      * subscription on this account, or an actual delivery failure per
      * subscription) instead of the silent nothing you'd otherwise be debugging.
+     *
+     * Scoped entirely to $user's own subscriptions (via requireUser below) -
+     * there's no cross-account action here, so this is safe for any signed-in
+     * reader to use, which matches the Settings page already showing this
+     * button to everyone regardless of role.
      */
     public function test(Request $request, WebPushService $webPush)
     {
         $user = $this->requireUser($request);
-
-        // Diagnostic tool, not a reader/author feature - anyone could otherwise
-        // hit this directly regardless of what the frontend chooses to show.
-        if ($user->role !== 'admin') {
-            return $this->error('forbidden', 'This diagnostic is only available to admins.', 403);
-        }
 
         $subscriptionCount = $user->pushSubscriptions()->count();
 

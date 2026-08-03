@@ -70,6 +70,13 @@ class PlatformMetricsService
             'reads_threshold' => self::READS_THRESHOLD,
             'completed_reads' => $completed,
             'completed_reads_threshold' => self::COMPLETED_READS_THRESHOLD,
+            // The frontend uses these to decide which episodes to show as
+            // locked without a round trip per episode - this is that single
+            // source of truth, so a GUEST_EPISODE_LIMIT/
+            // REGISTERED_PREMIUM_EPISODE_LIMIT change in .env takes effect
+            // for the UI too, not just API enforcement in StoryAccessService.
+            'guest_episode_limit' => (int) config('access.guest_episode_limit'),
+            'registered_premium_episode_limit' => (int) config('access.registered_premium_episode_limit'),
         ];
     }
 

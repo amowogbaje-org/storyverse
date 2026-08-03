@@ -6,6 +6,7 @@ import Container from "../components/common/Container";
 import Seo from "../components/common/Seo";
 import { isPushSupported, getPushSupportStatus, subscribeToPush, unsubscribeFromPush, getCurrentPushSubscription } from "../utils/push";
 import PayoutAccountSettings from "../components/settings/PayoutAccountSettings";
+import PasswordSettings from "../components/settings/PasswordSettings";
 
 const CURRENCIES = [
   { code: "USD", label: "USD ($) — United States" },
@@ -205,6 +206,8 @@ export default function ProfilePage() {
           {saving ? "Saving…" : "Save changes"}
         </button>
       </form>
+
+      <PasswordSettings />
 
       <Link
         to="/referrals"

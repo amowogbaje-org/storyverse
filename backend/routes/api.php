@@ -40,6 +40,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/me', [AuthController::class, 'updateMe']);
         Route::patch('/me/notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
         Route::patch('/me/reading-preferences', [AuthController::class, 'updateReadingPreferences']);
+        Route::patch('/me/password', [AuthController::class, 'updatePassword']);
         Route::post('/me/become-author', [AuthController::class, 'becomeAuthor']);
         Route::patch('/me/country', [AuthController::class, 'updateCountry']);
 

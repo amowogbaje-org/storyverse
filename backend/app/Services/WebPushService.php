@@ -90,7 +90,20 @@ class WebPushService
 
     private function client(): WebPush
     {
-        return new WebPush([
+        // minishlink/web-push calls trigger_error() (E_USER_NOTICE) when
+        // neither the GMP nor BCMath PHP extension is installed - it's just
+        // telling you it picked a slower pure-PHP fallback for the crypto
+        // math, not a real failure. Laravel's default error handler
+        // escalates *any* PHP notice into a thrown ErrorException though, so
+        // without suppressing this specific one, every push send would 500
+        // on a server missing those extensions even though nothing is
+        // actually broken. @ is deliberate and scoped to just this call.
+        //
+        // Proper long-term fix: enable the bcmath (or gmp) PHP extension on
+        // this server - on cPanel hosting that's usually Software > "Select
+        // PHP Version" > Extensions > check "bcmath" > Save, no code or
+        // deploy needed. Once it's on, this notice stops firing on its own.
+        return @new WebPush([
             'VAPID' => [
                 'subject' => config('webpush.subject'),
                 'publicKey' => config('webpush.public_key'),

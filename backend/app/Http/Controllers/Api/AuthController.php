@@ -330,6 +330,12 @@ class AuthController extends Controller
             ?? User::where('email', $payload['email'])->first();
 
         if ($user) {
+            // NOTE: deliberately never sets 'password' here, on first link or on
+            // any subsequent Google sign-in. Linking a Google account to an
+            // existing email/password account must never touch, clear, or
+            // silently reset a password the reader already set - see
+            // updatePassword() for the one and only place a reader's password
+            // is allowed to change.
             $user->update([
                 'google_id' => $user->google_id ?: $payload['sub'],
                 'email_verified_at' => $user->email_verified_at ?? now(),
@@ -564,6 +570,35 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Handles both cases with one endpoint: a reader who already has a
+     * password changing it (must prove they know the current one), and a
+     * Google-only reader setting a password for the first time (nothing to
+     * prove yet, since they don't have one). Deliberately separate from
+     * forgotPassword/resetPassword, which is the "I'm locked out, email me a
+     * code" flow for someone who isn't signed in - this one is for a
+     * signed-in reader managing their own account in Settings.
+     */
+    public function updatePassword(Request $request)
+    {
+        $user = $this->requireUser($request);
+
+        $data = $request->validate([
+            'current_password' => [$user->password ? 'required' : 'nullable', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'password.confirmed' => 'Password and confirmation do not match.',
+        ]);
+
+        if ($user->password && ! Hash::check($data['current_password'] ?? '', $user->password)) {
+            return $this->error('invalid_current_password', 'Current password is incorrect.', 422);
+        }
+
+        $user->update(['password' => Hash::make($data['password'])]);
+
+        return $this->ok(['has_password' => true]);
+    }
+
     public function logout(Request $request)
     {
         // Stateless JWT: nothing to invalidate server-side without a blacklist store.
@@ -598,6 +633,10 @@ class AuthController extends Controller
         return [
             ...$user->toArray(),
             'has_active_premium_subscription' => $user->hasActivePremiumSubscription(),
+            // password itself is never exposed ($hidden on the model) - just
+            // whether one is set, so the frontend knows whether a Google-only
+            // account needs a "set password" form or a "change password" one.
+            'has_password' => (bool) $user->password,
         ];
     }
 }

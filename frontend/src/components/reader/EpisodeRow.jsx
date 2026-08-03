@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
 import { canAccessEpisode, lockReason } from "../../utils/access";
 import { useAuth } from "../../context/AuthContext";
+import { useAccessLimits } from "../../hooks/queries/usePlatformStatus";
 import ShareMenu from "../story/ShareMenu";
 
 export default function EpisodeRow({ story, episode }) {
   const { user } = useAuth();
-  const unlocked = canAccessEpisode(story, episode, user);
-  const reason = lockReason(story, episode, user);
+  const limits = useAccessLimits();
+  const unlocked = canAccessEpisode(story, episode, user, limits);
+  const reason = lockReason(story, episode, user, limits);
   const progress = episode.reader_progress_percent ?? 0;
 
   const body = (

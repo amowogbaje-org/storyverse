@@ -15,7 +15,6 @@ return new class extends AiMigration
         $messagesTable = config('ai.conversations.tables.messages', 'agent_conversation_messages');
 
         Schema::create($conversationsTable, function (Blueprint $table) {
-            $table->engine = 'InnoDB';
             $table->string('id', 36)->primary();
             $table->string('participant_type')->nullable();
             $table->unsignedBigInteger('participant_id')->nullable();
@@ -26,7 +25,6 @@ return new class extends AiMigration
         });
 
         Schema::create($messagesTable, function (Blueprint $table) {
-            $table->engine = 'InnoDB';
             $table->string('id', 36)->primary();
             $table->string('conversation_id', 36)->index();
             $table->string('participant_type')->nullable();
