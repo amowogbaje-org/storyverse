@@ -495,8 +495,9 @@ class AuthController extends Controller
         'badge_emails',          // BadgeUnlocked -> mail
         'badge_push',            // BadgeUnlocked -> push
         'new_story_push',        // NewStoryRecommendation -> database + push
-        'continue_reading_push', // ContinueReading -> database + push
+        'continue_reading_push', // ContinueReading -> database + push (also gates SendReadingTimeReminders)
         'missed_you_push',       // WeMissedYou -> database + push
+        'new_episode_push',      // NewEpisodesAvailable -> database + push
     ];
 
     public function updateNotificationPreferences(Request $request)
@@ -536,6 +537,31 @@ class AuthController extends Controller
         $user->update(['country_code' => $data['country_code']]);
 
         return $this->ok($user);
+    }
+
+    /**
+     * Timezone is expected to come from the client via
+     * Intl.DateTimeFormat().resolvedOptions().timeZone (captured silently,
+     * not asked for) - preferred_reading_time is the one the user actually
+     * sets themselves in Settings. Either can be sent alone; sending
+     * preferred_reading_time as null clears it, falling back to the default
+     * evening slot used by SendReadingTimeReminders / SendNewEpisodeDigest.
+     */
+    public function updateReadingPreferences(Request $request)
+    {
+        $user = $this->requireUser($request);
+
+        $data = $request->validate([
+            'timezone' => ['sometimes', 'timezone'],
+            'preferred_reading_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+        ]);
+
+        $user->update($data);
+
+        return $this->ok([
+            'timezone' => $user->timezone,
+            'preferred_reading_time' => $user->preferred_reading_time,
+        ]);
     }
 
     public function logout(Request $request)

@@ -8,7 +8,7 @@ use App\Models\User;
 
 class StoryAccessService
 {
-    public function __construct(private PlatformMetricsService $metrics) {}
+    public function __construct(private PlatformMetricsService $metrics, private StoryPurchaseService $purchases) {}
 
     public function guestLimit(): int
     {
@@ -26,6 +26,13 @@ class StoryAccessService
     public function accessibleEpisodeLimit(Story $story, ?User $user): ?int
     {
         if ($user && $user->hasActivePremiumSubscription()) {
+            return null;
+        }
+
+        // A direct "buy this book" purchase always wins - it's a permanent,
+        // one-off unlock independent of subscription status, monetization
+        // rollout state, or anything else below.
+        if ($user && $story->isPurchasable() && $this->purchases->hasPurchased($user, $story)) {
             return null;
         }
 

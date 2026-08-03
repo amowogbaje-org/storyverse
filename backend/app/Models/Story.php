@@ -12,6 +12,7 @@ class Story extends Model
     protected $fillable = [
         'pen_name_id', 'title', 'slug', 'description',
         'cover_image_url', 'status', 'access_type', 'is_completed',
+        'purchase_price', 'purchase_currency',
         'episodes_count', 'views_count', 'likes_count', 'bookmarks_count',
         'comments_count', 'shares_count', 'published_at',
     ];
@@ -19,6 +20,7 @@ class Story extends Model
     protected $casts = [
         'is_completed' => 'boolean',
         'published_at' => 'datetime',
+        'purchase_price' => 'decimal:2',
     ];
 
     public function penName(): BelongsTo
@@ -59,5 +61,15 @@ class Story extends Model
     public function bookmarks(): HasMany
     {
         return $this->hasMany(StoryBookmark::class);
+    }
+
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(StoryPurchase::class);
+    }
+
+    public function isPurchasable(): bool
+    {
+        return $this->purchase_price !== null && $this->purchase_currency !== null;
     }
 }

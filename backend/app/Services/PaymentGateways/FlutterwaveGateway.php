@@ -6,6 +6,7 @@ use App\Contracts\PaymentGateway;
 use App\Contracts\SupportsPayouts;
 use App\Models\PenName;
 use App\Models\Payout;
+use App\Models\Story;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Support\CheckoutSession;
@@ -51,6 +52,25 @@ class FlutterwaveGateway implements PaymentGateway, SupportsPayouts
                 'redirect_url' => config('app.frontend_url')."/authors/{$penName->slug}?tip=success",
                 'customer' => ['email' => $tipper->email, 'name' => $tipper->name],
                 'meta' => ['tipper_id' => $tipper->id, 'pen_name_id' => $penName->id, 'kind' => 'tip'],
+            ])
+            ->throw()
+            ->json();
+
+        return new CheckoutSession($response['data']['link'], $txRef);
+    }
+
+    public function createStoryPurchaseCheckoutSession(User $user, Story $story, float $amount, string $currency): CheckoutSession
+    {
+        $txRef = 'buy_'.Str::uuid();
+
+        $response = Http::withToken(config('services.flutterwave.secret_key'))
+            ->post('https://api.flutterwave.com/v3/payments', [
+                'tx_ref' => $txRef,
+                'amount' => $amount,
+                'currency' => $currency,
+                'redirect_url' => config('app.frontend_url')."/stories/{$story->slug}?purchase=success",
+                'customer' => ['email' => $user->email, 'name' => $user->name],
+                'meta' => ['user_id' => $user->id, 'story_id' => $story->id, 'kind' => 'story_purchase'],
             ])
             ->throw()
             ->json();

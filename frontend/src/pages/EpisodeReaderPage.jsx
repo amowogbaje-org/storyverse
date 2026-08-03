@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEpisode, useStory } from "../hooks/queries/useStories";
 import { useRecordProgress } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
+import { useReadAloud } from "../hooks/useReadAloud";
 import UpsellBanner from "../components/reader/UpsellBanner";
+import ReadAloudBar from "../components/reader/ReadAloudBar";
 import ShareMenu from "../components/story/ShareMenu";
 import Seo from "../components/common/Seo";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -12,12 +14,14 @@ import Container from "../components/common/Container";
 
 export default function EpisodeReaderPage() {
   const { slug, episodeNumber } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: storyData } = useStory(slug);
   const { data: episodeData, isLoading } = useEpisode(slug, episodeNumber);
   const recordProgress = useRecordProgress(slug, episodeNumber);
   const contentRef = useRef(null);
   const lastSent = useRef(0);
+  const [autoAdvance, setAutoAdvance] = useState(false);
 
   const story = storyData?.data;
   const episode = episodeData?.data;
@@ -26,6 +30,17 @@ export default function EpisodeReaderPage() {
   const idx = (story?.episodes ?? []).findIndex((e) => e.episode_number === num);
   const next = story?.episodes?.[idx + 1];
   const prev = story?.episodes?.[idx - 1];
+
+  // "Keep reading" for read-aloud: when the utterance finishes the episode
+  // and auto-advance is on, move straight to the next one - but only if the
+  // reader actually has access to it, same rule the ← →  links below respect.
+  const readAloud = useReadAloud(episode?.content, {
+    onEnd: () => {
+      if (autoAdvance && next && story && canAccessEpisode(story, next, user)) {
+        navigate(`/stories/${slug}/episodes/${next.episode_number}`);
+      }
+    },
+  });
 
   useEffect(() => {
     let debounceTimer = null;
@@ -77,6 +92,11 @@ export default function EpisodeReaderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, episodeNumber]);
 
+  useEffect(() => {
+    readAloud.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, episodeNumber]);
+
   if (isLoading || !story) return <LoadingSpinner label="Loading episode" />;
 
   if (!canAccessEpisode(story, { episode_number: num }, user)) {
@@ -110,6 +130,18 @@ export default function EpisodeReaderPage() {
         </h1>
         <ShareMenu slug={slug} title={story.title} episodeNumber={num} variant="icon" />
       </div>
+
+      <ReadAloudBar
+        supported={readAloud.supported}
+        speaking={readAloud.speaking}
+        paused={readAloud.paused}
+        onPlay={readAloud.play}
+        onPause={readAloud.pause}
+        onStop={readAloud.stop}
+        autoAdvance={autoAdvance}
+        onToggleAutoAdvance={() => setAutoAdvance((v) => !v)}
+        hasNext={Boolean(next)}
+      />
 
       <article
         ref={contentRef}

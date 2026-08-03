@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::patch('/me', [AuthController::class, 'updateMe']);
         Route::patch('/me/notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
+        Route::patch('/me/reading-preferences', [AuthController::class, 'updateReadingPreferences']);
         Route::post('/me/become-author', [AuthController::class, 'becomeAuthor']);
         Route::patch('/me/country', [AuthController::class, 'updateCountry']);
 
@@ -62,6 +63,8 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::post('/authors/{slug}/tip', [\App\Http\Controllers\Api\TipController::class, 'checkout']);
+        Route::post('/stories/{slug}/purchase', [\App\Http\Controllers\Api\StoryPurchaseController::class, 'checkout']);
+        Route::get('/stories/{slug}/purchase-status', [\App\Http\Controllers\Api\StoryPurchaseController::class, 'status']);
         Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);
         Route::post('/me/subscription/cancel', [SubscriptionController::class, 'cancel']);
 

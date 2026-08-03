@@ -16,6 +16,7 @@ class User extends Authenticatable
     protected $fillable = [
         "name", "email", "password", "phone", "country_code", "google_id",
         "currency", "avatar_url", "role", "email_verified_at",
+        "timezone", "preferred_reading_time",
         "current_streak_days", "last_streak_date", "last_active_at", "notification_preferences",
         "referred_by", "referral_reward_tier_claimed",
         "payout_account_name", "payout_account_number", "payout_bank_name", "payout_bank_code",
@@ -104,6 +105,47 @@ class User extends Authenticatable
     public function referrals(): HasMany
     {
         return $this->hasMany(User::class, 'referred_by');
+    }
+
+    /**
+     * Falls back to UTC for anyone who hasn't had a timezone captured yet
+     * (older accounts, or a client that hasn't sent one) - never throws on a
+     * bad/missing value, since this feeds directly into schedule-matching.
+     */
+    public function resolvedTimezone(): string
+    {
+        if (! $this->timezone) {
+            return 'UTC';
+        }
+
+        try {
+            new \DateTimeZone($this->timezone);
+
+            return $this->timezone;
+        } catch (\Exception) {
+            return 'UTC';
+        }
+    }
+
+    /**
+     * The local hour (0-23) reading-time-aware reminders should fire at: the
+     * reader's own preferred_reading_time if they've set one, otherwise a
+     * default evening slot (see SendReadingTimeReminders /
+     * SendNewEpisodeDigest docblocks for how this is used).
+     */
+    public function notificationTargetHour(int $defaultEveningHour = 19): int
+    {
+        if ($this->preferred_reading_time) {
+            return (int) \Carbon\Carbon::parse($this->preferred_reading_time)->format('G');
+        }
+
+        return $defaultEveningHour;
+    }
+
+    /** True when "now", converted to this user's timezone, falls in their target hour. */
+    public function isCurrentlyInNotificationHour(int $defaultEveningHour = 19): bool
+    {
+        return now($this->resolvedTimezone())->hour === $this->notificationTargetHour($defaultEveningHour);
     }
 
     public function hasActivePremiumSubscription(): bool

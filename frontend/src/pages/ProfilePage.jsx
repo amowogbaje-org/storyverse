@@ -22,6 +22,7 @@ const PUSH_UNSUPPORTED_REASONS = {
 const NOTIFICATION_TYPES = [
   { key: "new_story_push", label: "New story recommendations", hint: "Based on categories you've liked, bookmarked, or finished." },
   { key: "continue_reading_push", label: "Continue reading reminders", hint: "A nudge about a story you left partway through." },
+  { key: "new_episode_push", label: "New episodes on stories you're reading", hint: "Once a day, around your reading time." },
   { key: "missed_you_push", label: "\"We missed you\" nudges", hint: "Only sent after a week or more away." },
   { key: "badge_push", label: "Badge unlock alerts (push)", hint: "" },
   { key: "badge_emails", label: "Badge unlock emails", hint: "" },
@@ -42,11 +43,39 @@ export default function ProfilePage() {
   const [testResult, setTestResult] = useState(null);
   const [prefs, setPrefs] = useState({});
   const [prefBusyKey, setPrefBusyKey] = useState(null);
+  const [readingTime, setReadingTime] = useState("");
+  const [readingTimeSaving, setReadingTimeSaving] = useState(false);
+  const [readingTimeSaved, setReadingTimeSaved] = useState(false);
 
   useEffect(() => {
     if (!isPushSupported()) return;
     getCurrentPushSubscription().then((sub) => setPushEnabled(Boolean(sub)));
   }, []);
+
+  // Captured silently, not asked for - lets reading-time-based reminders and
+  // the new-episode digest land at the right local hour. Only sent when it's
+  // actually changed from what's on file, so this isn't a PATCH on every
+  // visit to Settings.
+  useEffect(() => {
+    if (!user) return;
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected && detected !== user.timezone) {
+      api.patch("/me/reading-preferences", { timezone: detected }).catch(() => {});
+    }
+  }, [user]);
+
+  async function saveReadingTime(e) {
+    e.preventDefault();
+    setReadingTimeSaving(true);
+    setReadingTimeSaved(false);
+    try {
+      await api.patch("/me/reading-preferences", { preferred_reading_time: readingTime || null });
+      await refresh();
+      setReadingTimeSaved(true);
+    } finally {
+      setReadingTimeSaving(false);
+    }
+  }
 
   async function togglePush() {
     setPushBusy(true);
@@ -113,6 +142,7 @@ export default function ProfilePage() {
     setDisplayName(user.display_name ?? "");
     setCurrency(user.currency ?? "USD");
     setPrefs(user.notification_preferences ?? {});
+    setReadingTime(user.preferred_reading_time ? user.preferred_reading_time.slice(0, 5) : "");
   }, [user]);
 
   async function becomeAuthor() {
@@ -278,6 +308,41 @@ export default function ProfilePage() {
             );
           })}
         </ul>
+      </div>
+
+      <div className="mt-4 rounded-card border border-ink-950/10 bg-white/40 p-4">
+        <p className="text-sm font-medium text-ink-950">Reading time</p>
+        <p className="mt-0.5 text-xs text-ink-500">
+          Set a time of day and we'll nudge you to resume reading around then instead of at a random hour.
+        </p>
+        <form onSubmit={saveReadingTime} className="mt-3 flex items-center gap-2">
+          <input
+            type="time"
+            value={readingTime}
+            onChange={(e) => { setReadingTime(e.target.value); setReadingTimeSaved(false); }}
+            className="rounded-card border border-ink-950/15 bg-white/70 px-3 py-2 text-sm outline-none focus:border-gold-500"
+          />
+          <button
+            type="submit"
+            disabled={readingTimeSaving}
+            className="rounded-card bg-ink-950 px-4 py-2 text-sm font-medium text-parchment-50 disabled:opacity-50"
+          >
+            {readingTimeSaving ? "Saving…" : "Save"}
+          </button>
+          {readingTime && (
+            <button
+              type="button"
+              onClick={() => setReadingTime("")}
+              className="text-xs text-ink-500 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+        {readingTimeSaved && <p className="mt-2 text-xs text-teal-700">Saved.</p>}
+        {!readingTime && (
+          <p className="mt-2 text-xs text-ink-400">No time set — reminders default to a normal evening hour for you.</p>
+        )}
       </div>
 
       {(user.role === "author" || user.role === "admin") && <PayoutAccountSettings />}

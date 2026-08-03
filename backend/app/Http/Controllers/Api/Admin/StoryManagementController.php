@@ -46,6 +46,8 @@ class StoryManagementController extends Controller
             'description' => ['required', 'string', 'max:5000'],
             'cover_image_url' => ['required', 'string', 'max:2048'],
             'access_type' => ['required', 'in:free,premium'],
+            'purchase_price' => ['sometimes', 'nullable', 'numeric', 'min:0.5', 'max:10000'],
+            'purchase_currency' => ['sometimes', 'nullable', 'in:USD,GBP,NGN', 'required_with:purchase_price'],
         ]);
 
         $this->assertOwnsPenName($user, (int) $data['pen_name_id']);
@@ -79,6 +81,8 @@ class StoryManagementController extends Controller
             'cover_image_url' => ['sometimes', 'string', 'max:2048'],
             'access_type' => ['sometimes', 'in:free,premium'],
             'is_completed' => ['sometimes', 'boolean'],
+            'purchase_price' => ['sometimes', 'nullable', 'numeric', 'min:0.5', 'max:10000'],
+            'purchase_currency' => ['sometimes', 'nullable', 'in:USD,GBP,NGN', 'required_with:purchase_price'],
         ]);
 
         $story->update(collect($data)->except(['genre_ids', 'category_ids'])->all());

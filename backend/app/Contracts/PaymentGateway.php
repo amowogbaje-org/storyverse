@@ -3,6 +3,7 @@
 namespace App\Contracts;
 
 use App\Models\PenName;
+use App\Models\Story;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Support\CheckoutSession;
@@ -29,6 +30,15 @@ interface PaymentGateway
      * tipper picked rather than coming from a Plan record.
      */
     public function createTipCheckoutSession(User $tipper, PenName $penName, float $amount, string $currency): CheckoutSession;
+
+    /**
+     * Create a hosted checkout session for a one-off "buy this book" purchase -
+     * a single flat charge that unlocks every episode of $story for $user
+     * regardless of subscription status. Amount/currency come from the
+     * story's own purchase_price/purchase_currency (set by its author), not a
+     * Plan record.
+     */
+    public function createStoryPurchaseCheckoutSession(User $user, Story $story, float $amount, string $currency): CheckoutSession;
 
     /** Verify the incoming webhook request actually came from this provider. */
     public function verifySignature(Request $request): bool;
