@@ -10,6 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('story_prices', function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->id();
             $table->foreignId('story_id')->constrained()->cascadeOnDelete();
             $table->string('currency', 3);
