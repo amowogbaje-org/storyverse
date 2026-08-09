@@ -10,12 +10,12 @@
         "firebase/php-jwt": "^7.0",
         "predis/predis": "^2.2",
         "minishlink/web-push": "^9.0",
+        "laravel/telescope": "^5.22",
         "laravel/ai": "^0.10.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "laravel/pint": "^1.27",
-        "laravel/telescope": "^5.22",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^12.5"
