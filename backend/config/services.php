@@ -43,6 +43,12 @@ return [
         'summary_emails' => env('ANALYTICS_SUMMARY_EMAILS', ''),
     ],
 
+    // See App\Http\Middleware\TelescopeAccessKey - Telescope's own gate
+    // needs a session-authenticated web-guard user, which this JWT-only app
+    // never has. Generate a real secret, don't leave this blank:
+    //   openssl rand -hex 32
+    'telescope_access_key' => env('TELESCOPE_ACCESS_KEY'),
+
     'ai_search' => [
         // Which Laravel AI SDK provider (Laravel\Ai\Enums\Lab case, lowercase
         // string is fine) StorySearchAgent uses. Switching providers - e.g. from
