@@ -57,10 +57,3 @@ export function useRecordProgress(slug, episodeNumber) {
     },
   });
 }
-
-export function useSubscribeToPlan() {
-  return useMutation({
-    mutationFn: async ({ planId, gateway }) =>
-      (await api.post("/subscriptions/checkout", { plan_id: planId, gateway })).data,
-  });
-}

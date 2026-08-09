@@ -28,9 +28,19 @@ class EpisodeManagementController extends Controller
 
         $nextNumber = ($story->episodes()->max('episode_number') ?? 0) + 1;
 
+        // `content` starts out equal to the author's raw text (so it's
+        // readable immediately) and gets replaced by the styled version once
+        // StyleEpisodes picks it up, within 15 minutes - see that command and
+        // EpisodeStylingAgent. `raw_content` is the source of truth CraftProfessor
+        // is always sent (see CraftProfessorExportController) and is never
+        // touched by the styling agent.
         $episode = $story->episodes()->create([
             'title' => $data['title'],
             'content' => $data['content'],
+            'raw_content' => $data['content'],
+            'raw_content_updated_at' => now(),
+            'styled_at' => null,
+            'styling_attempts' => 0,
             'episode_number' => $nextNumber,
             'word_count' => str_word_count(strip_tags($data['content'])),
             'status' => 'draft',
@@ -48,14 +58,46 @@ class EpisodeManagementController extends Controller
 
         $data = $request->validate([
             'title' => ['sometimes', 'string', 'max:255'],
+            // Two independent fields now, not one - see EpisodeStylingAgent/
+            // StyleEpisodes for why both exist at all. Sent separately
+            // because they mean two different author actions: editing
+            // raw_content is "I changed what the story says" (queues a
+            // re-style, since the styled version is now stale); editing
+            // content on its own is "I'm manually touching up the styling"
+            // (e.g. fixing a spot the AI got wrong) and must NOT go back
+            // through raw_content or the styling queue.
+            'raw_content' => ['sometimes', 'string'],
             'content' => ['sometimes', 'string'],
         ]);
 
-        if (isset($data['content'])) {
-            $data['word_count'] = str_word_count(strip_tags($data['content']));
+        $updates = collect($data)->only('title')->all();
+
+        if (isset($data['raw_content'])) {
+            $updates['raw_content'] = $data['raw_content'];
+            $updates['raw_content_updated_at'] = now();
+            $updates['word_count'] = str_word_count(strip_tags($data['raw_content']));
+
+            // Only mirror + queue AI styling if this request ISN'T also
+            // manually supplying a styled version below - if it is, that
+            // manual version should win outright, not get queued for the AI
+            // to immediately overwrite again.
+            if (! isset($data['content'])) {
+                $updates['content'] = $data['raw_content'];
+                $updates['styled_at'] = null;
+                $updates['styling_attempts'] = 0;
+            }
         }
 
-        $episode->update($data);
+        if (isset($data['content'])) {
+            // A manual styling save: written straight to `content`, marked
+            // done (styled_at = now()) so StyleEpisodes leaves it alone -
+            // raw_content is untouched here on purpose.
+            $updates['content'] = $data['content'];
+            $updates['styled_at'] = now();
+            $updates['styling_attempts'] = 0;
+        }
+
+        $episode->update($updates);
 
         \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
 

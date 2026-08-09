@@ -53,7 +53,7 @@ class NewEpisodesAvailable extends Notification
             'title' => 'New episodes are up 🆕',
             'body' => $this->body,
             'url' => "/stories/{$this->story->slug}",
-            'icon' => $this->story->cover_image_url,
+            'image' => $this->story->cover_image_url,
         ];
     }
 }

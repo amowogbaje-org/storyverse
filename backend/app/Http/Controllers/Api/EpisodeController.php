@@ -55,12 +55,14 @@ class EpisodeController extends Controller
         $episode = Episode::make($payload['episode']);
         $episode->id = $payload['episode']['id'];
 
-        if (! $this->access->canAccessEpisode($story, $episode, $user)) {
-            return $this->error(
-                $this->access->lockReason($story, $episode, $user),
-                'This episode is locked.',
-                403
-            );
+        // See InteractionController::updateProgress for why this is computed
+        // once and reused, rather than calling canAccessEpisode() then
+        // lockReason() separately (each re-runs the same real queries).
+        $limit = $this->access->accessibleEpisodeLimit($story, $user);
+        $lockReason = $this->access->lockReasonForLimit($limit, $episode, $user);
+
+        if ($lockReason !== null) {
+            return $this->error($lockReason, 'This episode is locked.', 403);
         }
 
         if ($user) {

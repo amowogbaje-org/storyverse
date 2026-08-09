@@ -118,7 +118,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-5 text-center text-sm text-ink-500">
-        New here? <Link to="/register" className="text-teal-700 hover:underline">Create an account</Link>
+        New here? <Link to={`/register${params.get("next") ? `?next=${encodeURIComponent(params.get("next"))}` : ""}`} className="text-teal-700 hover:underline">Create an account</Link>
       </p>
     </Container>
   );

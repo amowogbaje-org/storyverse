@@ -13,7 +13,7 @@
 
 /** @returns {number|null} null = unlimited, otherwise max episode_number visible */
 export function accessibleEpisodeLimit(story, user, limits) {
-  if (user?.has_active_premium_subscription) return null;
+  if (user?.has_premium_access) return null;
   if (!user) return limits.guestEpisodeLimit;
   return story.access_type === "free" ? null : limits.registeredPremiumEpisodeLimit;
 }
@@ -23,7 +23,7 @@ export function canAccessEpisode(story, episode, user, limits) {
   return limit === null || episode.episode_number <= limit;
 }
 
-/** 'guest_limit' -> prompt to register, 'premium_required' -> prompt to subscribe, null -> unlocked */
+/** 'guest_limit' -> prompt to register, 'premium_required' -> prompt to buy the story, null -> unlocked */
 export function lockReason(story, episode, user, limits) {
   if (canAccessEpisode(story, episode, user, limits)) return null;
   return user ? "premium_required" : "guest_limit";

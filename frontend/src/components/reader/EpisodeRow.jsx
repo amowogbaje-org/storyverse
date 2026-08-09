@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { canAccessEpisode, lockReason } from "../../utils/access";
 import { useAuth } from "../../context/AuthContext";
 import { useAccessLimits } from "../../hooks/queries/usePlatformStatus";
+import { loginUrl } from "../../utils/loginUrl";
 import ShareMenu from "../story/ShareMenu";
 
 export default function EpisodeRow({ story, episode }) {
@@ -61,7 +62,7 @@ export default function EpisodeRow({ story, episode }) {
 
   return (
     <Link
-      to={reason === "guest_limit" ? `/login?next=/stories/${story.slug}` : "/subscription"}
+      to={reason === "guest_limit" ? loginUrl(`/stories/${story.slug}`) : `/stories/${story.slug}`}
       className="block px-1 opacity-80 hover:bg-parchment-100 rounded-lg"
     >
       {body}

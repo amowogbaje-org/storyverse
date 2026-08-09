@@ -3,11 +3,42 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Light theme (default) - values are "R G B" so Tailwind can apply
+       opacity modifiers like bg-parchment-50/95. */
+    --color-ink-950: 20 16 31;
+    --color-ink-900: 27 18 48;
+    --color-ink-700: 55 44 76;
+    --color-ink-500: 91 77 117;
+    --color-ink-300: 139 127 160;
+    --color-parchment-50: 249 246 238;
+    --color-parchment-100: 241 236 223;
+    --color-parchment-200: 230 223 204;
+  }
+
+  .dark {
+    /* Same token names, inverted roles: parchment-50 becomes the dark
+       background, ink-950 becomes the near-white body text. Every existing
+       bg-parchment-50 / text-ink-950 usage in the app just works. */
+    --color-parchment-50: 18 15 26;
+    --color-parchment-100: 26 22 37;
+    --color-parchment-200: 36 30 50;
+    --color-ink-950: 240 237 247;
+    --color-ink-900: 224 219 237;
+    --color-ink-700: 196 189 214;
+    --color-ink-500: 156 147 176;
+    --color-ink-300: 110 101 132;
+  }
+
   html {
     -webkit-tap-highlight-color: transparent;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
-    @apply bg-parchment-50 text-ink-950 font-sans antialiased;
+    @apply bg-parchment-50 text-ink-950 font-sans antialiased transition-colors duration-150;
   }
   ::selection {
     @apply bg-gold-400/40;

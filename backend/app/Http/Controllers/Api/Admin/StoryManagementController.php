@@ -14,7 +14,7 @@ class StoryManagementController extends Controller
     {
         $user = $this->requireUser($request);
 
-        $query = Story::with(['penName', 'categories', 'genres'])->withCount('episodes');
+        $query = Story::with(['penName', 'categories', 'genres', 'prices'])->withCount('episodes');
 
         if ($user->role !== 'admin') {
             $query->whereIn('pen_name_id', $user->penNames()->pluck('id'));
@@ -27,7 +27,7 @@ class StoryManagementController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $story = $this->ownedStoryOrFail($request, $id, ['penName', 'categories', 'genres', 'episodes']);
+        $story = $this->ownedStoryOrFail($request, $id, ['penName', 'categories', 'genres', 'episodes', 'prices']);
 
         return $this->ok($story);
     }
@@ -46,14 +46,13 @@ class StoryManagementController extends Controller
             'description' => ['required', 'string', 'max:5000'],
             'cover_image_url' => ['required', 'string', 'max:2048'],
             'access_type' => ['required', 'in:free,premium'],
-            'purchase_price' => ['sometimes', 'nullable', 'numeric', 'min:0.5', 'max:10000'],
-            'purchase_currency' => ['sometimes', 'nullable', 'in:USD,GBP,NGN', 'required_with:purchase_price'],
+            ...$this->pricesValidationRules(),
         ]);
 
         $this->assertOwnsPenName($user, (int) $data['pen_name_id']);
 
         $story = Story::create([
-            ...collect($data)->except(['genre_ids', 'category_ids'])->all(),
+            ...collect($data)->except(['genre_ids', 'category_ids', 'prices'])->all(),
             'slug' => $this->uniqueSlug($data['title']),
             'status' => 'draft',
         ]);
@@ -64,7 +63,11 @@ class StoryManagementController extends Controller
             $story->genres()->sync($data['genre_ids']);
         }
 
-        return $this->ok($story->load(['penName', 'categories', 'genres']), 201);
+        if (array_key_exists('prices', $data)) {
+            $this->syncPrices($story, $data['prices'] ?? []);
+        }
+
+        return $this->ok($story->load(['penName', 'categories', 'genres', 'prices']), 201);
     }
 
     public function update(Request $request, int $id)
@@ -81,11 +84,10 @@ class StoryManagementController extends Controller
             'cover_image_url' => ['sometimes', 'string', 'max:2048'],
             'access_type' => ['sometimes', 'in:free,premium'],
             'is_completed' => ['sometimes', 'boolean'],
-            'purchase_price' => ['sometimes', 'nullable', 'numeric', 'min:0.5', 'max:10000'],
-            'purchase_currency' => ['sometimes', 'nullable', 'in:USD,GBP,NGN', 'required_with:purchase_price'],
+            ...$this->pricesValidationRules(),
         ]);
 
-        $story->update(collect($data)->except(['genre_ids', 'category_ids'])->all());
+        $story->update(collect($data)->except(['genre_ids', 'category_ids', 'prices'])->all());
 
         if (array_key_exists('category_ids', $data)) {
             $story->categories()->sync($data['category_ids']);
@@ -95,9 +97,13 @@ class StoryManagementController extends Controller
             $story->genres()->sync($data['genre_ids']);
         }
 
+        if (array_key_exists('prices', $data)) {
+            $this->syncPrices($story, $data['prices'] ?? []);
+        }
+
         \App\Support\HomeCache::forgetHomepage();
 
-        return $this->ok($story->fresh(['penName', 'categories', 'genres']));
+        return $this->ok($story->fresh(['penName', 'categories', 'genres', 'prices']));
     }
 
     public function publish(Request $request, int $id)
@@ -138,6 +144,39 @@ class StoryManagementController extends Controller
         \App\Support\HomeCache::forgetHomepage();
 
         return $this->ok(['deleted' => true]);
+    }
+
+    /**
+     * One price per currency an author wants to sell a story in - e.g.
+     * [{"currency":"USD","amount":9.99},{"currency":"NGN","amount":4500}].
+     * Any currency not in config/currencies.php is rejected here rather than
+     * silently accepted, since that config file is also what the frontend's
+     * price form and StoryPurchaseController's checkout both read from - a
+     * currency this validation let through but nothing else recognized would
+     * be a silently broken price no reader could actually pay.
+     */
+    private function pricesValidationRules(): array
+    {
+        return [
+            'prices' => ['sometimes', 'array'],
+            'prices.*.currency' => ['required', 'string', 'in:'.implode(',', array_keys(config('currencies')))],
+            'prices.*.amount' => ['required', 'numeric', 'min:0.01', 'max:1000000'],
+        ];
+    }
+
+    /** Replaces a story's full set of prices with exactly the currencies given - removing a currency from the list un-prices it. */
+    private function syncPrices(Story $story, array $prices): void
+    {
+        $keep = collect($prices)->pluck('currency');
+
+        $story->prices()->whereNotIn('currency', $keep)->delete();
+
+        foreach ($prices as $price) {
+            $story->prices()->updateOrCreate(
+                ['currency' => $price['currency']],
+                ['amount' => $price['amount']]
+            );
+        }
     }
 
     private function ownedStoryOrFail(Request $request, int $id, array $with = []): Story

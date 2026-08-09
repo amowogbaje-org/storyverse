@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\ReadingProgress;
 use App\Models\Story;
+use App\Models\StoryPurchase;
 use App\Models\Tip;
 use App\Models\User;
 use App\Notifications\PayoutIssued;
@@ -15,21 +16,24 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Same completed-reads revenue-share estimate as
- * Admin\EarningsController::mine(), just computed for a fixed calendar month
- * (last month, in whichever timezone the server runs in) instead of a
- * rolling window, plus that same author's tips received in the period.
+ * Two revenue sources, combined per author per currency: direct story sales
+ * (StoryPurchase - attributed exactly, since a purchase is for one specific
+ * story) and tips. A third, subscription_share_amount, is computed the same
+ * way it always was (a completed-reads proportional share of Payment
+ * revenue) and always comes out to 0 for any period after subscriptions
+ * were removed as a product - kept rather than deleted so past payout
+ * records still mean what they said at the time, not silently reinterpreted.
  *
  * Scheduled for the 2nd of each month (routes/console.php) - a day after
  * month-end rather than exactly on the 1st, so the previous month's data has
- * fully settled (a subscription renewal or a completed read logged in the
- * last minutes of the month should still count).
+ * fully settled (a purchase or a completed read logged in the last minutes
+ * of the month should still count).
  */
 class GenerateMonthlyPayouts extends Command
 {
     protected $signature = 'app:generate-monthly-payouts {--month= : YYYY-MM to generate for, defaults to last calendar month}';
 
-    protected $description = "Generate each author's payout for last month's subscription-revenue share and tips";
+    protected $description = "Generate each author's payout for last month's story sales share and tips";
 
     public function handle(PaymentGatewayRegistry $gateways): int
     {
@@ -39,9 +43,14 @@ class GenerateMonthlyPayouts extends Command
 
         $periodStart = $month->copy()->startOfMonth();
         $periodEnd = $month->copy()->endOfMonth();
+        $authorSharePercent = (float) config('payouts.author_share_percentage');
 
         $platformCompletedReads = ReadingProgress::whereBetween('completed_at', [$periodStart, $periodEnd])->count();
 
+        // Always 0 for any period after subscriptions were removed - see the
+        // class docblock. Left in place rather than deleted so this doesn't
+        // need to change again if subscription_share_amount's historical
+        // meaning is ever needed.
         $platformRevenue = Payment::where('status', 'success')
             ->whereBetween('created_at', [$periodStart, $periodEnd])
             ->select('currency', DB::raw('sum(amount) as total'))
@@ -62,6 +71,13 @@ class GenerateMonthlyPayouts extends Command
 
             $share = $platformCompletedReads > 0 ? $authorCompletedReads / $platformCompletedReads : 0.0;
 
+            $salesByCurrency = StoryPurchase::whereIn('story_id', $storyIds)
+                ->where('status', 'success')
+                ->whereBetween('created_at', [$periodStart, $periodEnd])
+                ->select('currency', DB::raw('sum(amount) as total'))
+                ->groupBy('currency')
+                ->pluck('total', 'currency');
+
             $tipsByCurrency = Tip::whereIn('pen_name_id', $author->penNames()->pluck('id'))
                 ->where('status', 'success')
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
@@ -69,12 +85,16 @@ class GenerateMonthlyPayouts extends Command
                 ->groupBy('currency')
                 ->pluck('total', 'currency');
 
-            $currencies = $platformRevenue->keys()->merge($tipsByCurrency->keys())->unique();
+            $currencies = $platformRevenue->keys()
+                ->merge($salesByCurrency->keys())
+                ->merge($tipsByCurrency->keys())
+                ->unique();
 
             foreach ($currencies as $currency) {
                 $subscriptionShare = round(($platformRevenue[$currency] ?? 0) * $share, 2);
+                $storySales = round(($salesByCurrency[$currency] ?? 0) * $authorSharePercent, 2);
                 $tips = round((float) ($tipsByCurrency[$currency] ?? 0), 2);
-                $total = $subscriptionShare + $tips;
+                $total = $subscriptionShare + $storySales + $tips;
 
                 if ($total < (config("payouts.minimum_payout_amount.{$currency}") ?? 0)) {
                     continue;
@@ -84,6 +104,7 @@ class GenerateMonthlyPayouts extends Command
                     ['user_id' => $author->id, 'period_start' => $periodStart->toDateString(), 'period_end' => $periodEnd->toDateString(), 'currency' => $currency],
                     [
                         'subscription_share_amount' => $subscriptionShare,
+                        'story_sales_amount' => $storySales,
                         'tips_amount' => $tips,
                         'total_amount' => $total,
                         'status' => 'pending',

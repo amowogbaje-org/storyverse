@@ -10,14 +10,6 @@ class StoryAccessTest extends TestCase
 {
     use CreatesStoryFixtures;
 
-    private function monetizationEnabled(bool $hasPriorAccess = false): void
-    {
-        $this->mock(PlatformMetricsService::class, function ($mock) use ($hasPriorAccess) {
-            $mock->shouldReceive('isMonetizationEnabled')->andReturn(true);
-            $mock->shouldReceive('hasPriorAccess')->andReturn($hasPriorAccess);
-        });
-    }
-
     private function bootstrapPhase(): void
     {
         $this->mock(PlatformMetricsService::class, function ($mock) {
@@ -67,7 +59,12 @@ class StoryAccessTest extends TestCase
             ->assertJsonPath('error.code', 'guest_limit');
     }
 
-    public function test_premium_subscriber_has_unlimited_access(): void
+    /**
+     * Subscriptions are no longer the premium-access mechanism (see
+     * StoryAccessService/BonusAccessService) - a plain active subscription
+     * row (if one somehow still exists) grants nothing on its own anymore.
+     */
+    public function test_an_active_subscription_alone_no_longer_grants_access(): void
     {
         $this->monetizationEnabled();
         ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
@@ -85,6 +82,43 @@ class StoryAccessTest extends TestCase
             'locked_currency' => 'USD',
             'status' => 'active',
             'current_period_end' => now()->addMonth(),
+        ]);
+
+        $this->getJson("/api/v1/stories/{$story->slug}/episodes/6", $this->bearerFor($reader))
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'premium_required');
+    }
+
+    public function test_reward_granted_bonus_access_gives_unlimited_access(): void
+    {
+        $this->monetizationEnabled();
+        ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
+        $reader = $this->createReader(['premium_access_until' => now()->addDays(3)]);
+
+        $this->getJson("/api/v1/stories/{$story->slug}/episodes/6", $this->bearerFor($reader))->assertStatus(200);
+    }
+
+    public function test_expired_bonus_access_does_not_grant_access(): void
+    {
+        $this->monetizationEnabled();
+        ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
+        $reader = $this->createReader(['premium_access_until' => now()->subDay()]);
+
+        $this->getJson("/api/v1/stories/{$story->slug}/episodes/6", $this->bearerFor($reader))
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'premium_required');
+    }
+
+    public function test_purchasing_a_story_gives_unlimited_access_to_it(): void
+    {
+        $this->monetizationEnabled();
+        ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
+        $reader = $this->createReader();
+
+        $story->prices()->create(['currency' => 'USD', 'amount' => 9.99]);
+        $story->purchases()->create([
+            'user_id' => $reader->id, 'gateway' => 'stripe', 'gateway_reference' => 'ref-1',
+            'amount' => 9.99, 'currency' => 'USD', 'status' => 'success',
         ]);
 
         $this->getJson("/api/v1/stories/{$story->slug}/episodes/6", $this->bearerFor($reader))->assertStatus(200);

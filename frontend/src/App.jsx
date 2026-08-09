@@ -30,7 +30,6 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const BadgesPage = lazy(() => import("./pages/BadgesPage"));
 const ReferralsPage = lazy(() => import("./pages/ReferralsPage"));
-const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
@@ -70,7 +69,6 @@ export default function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/badges" element={<BadgesPage />} />
             <Route path="/referrals" element={<ReferralsPage />} />
-            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsPage />} />

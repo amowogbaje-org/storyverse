@@ -31,8 +31,6 @@ class BadgeMetricResolver
             'genres_explored' => $this->distinctGenresRead($user),
             'author_stories_completed_max' => $this->maxStoriesCompletedForOneAuthor($user),
             'cumulative_spend' => $this->cumulativeSpend($user),
-            'premium_months_consecutive' => $this->consecutivePaidMonths($user),
-            'annual_plan_purchased' => $this->hasAnnualPlanPurchase($user),
             'premium_episodes_unlocked_stories' => $this->distinctPremiumStoriesUnlocked($user),
             'early_comments' => $this->earlyComments($user),
             'late_night_reads' => $this->readsInHourRange($user, 0, 4),
@@ -83,64 +81,29 @@ class BadgeMetricResolver
             ->max() ?: 0;
     }
 
+    /**
+     * Total spend across both revenue mechanisms this platform has ever had:
+     * payments (subscriptions, historical only - see the subscription
+     * removal notes elsewhere) and story_purchases (the current one). Only
+     * summing `payments` here would mean these badges silently stopped
+     * triggering for anyone the moment subscriptions were removed, even
+     * though people are still very much spending money via story purchases.
+     */
     private function cumulativeSpend(User $user): int
     {
         // NOTE: naive sum, no currency conversion - fine while pricing is per-country
         // and users mostly pay in one currency, but worth revisiting if that changes.
-        return (int) DB::table('payments')
+        $fromPayments = (float) DB::table('payments')
             ->where('user_id', $user->id)
             ->where('status', 'success')
             ->sum('amount');
-    }
 
-    /**
-     * Longest run of consecutive calendar months (ending at the most recent one)
-     * in which the user made at least one successful payment. Subscriptions only
-     * store the *current* period, not history, so payments are the source of truth
-     * for "how many months in a row have they paid."
-     */
-    private function consecutivePaidMonths(User $user): int
-    {
-        $monthExpr = DB::connection()->getDriverName() === 'pgsql'
-            ? "to_char(created_at, 'YYYY-MM')"
-            : "date_format(created_at, '%Y-%m')";
-
-        $months = DB::table('payments')
+        $fromPurchases = (float) DB::table('story_purchases')
             ->where('user_id', $user->id)
             ->where('status', 'success')
-            ->selectRaw("distinct {$monthExpr} as ym")
-            ->pluck('ym')
-            ->sort()
-            ->values();
+            ->sum('amount');
 
-        if ($months->isEmpty()) {
-            return 0;
-        }
-
-        $streak = 1;
-        $best = 1;
-
-        for ($i = 1; $i < $months->count(); $i++) {
-            $prev = \Carbon\Carbon::createFromFormat('Y-m', $months[$i - 1])->startOfMonth();
-            $curr = \Carbon\Carbon::createFromFormat('Y-m', $months[$i])->startOfMonth();
-
-            $streak = $prev->diffInMonths($curr) === 1 ? $streak + 1 : 1;
-            $best = max($best, $streak);
-        }
-
-        return $best;
-    }
-
-    private function hasAnnualPlanPurchase(User $user): int
-    {
-        $exists = DB::table('payments')
-            ->join('subscription_plans', 'subscription_plans.id', '=', 'payments.plan_id')
-            ->where('payments.user_id', $user->id)
-            ->where('payments.status', 'success')
-            ->where('subscription_plans.billing_interval', 'year')
-            ->exists();
-
-        return $exists ? 1 : 0;
+        return (int) ($fromPayments + $fromPurchases);
     }
 
     /** How many distinct premium stories this reader has read past the paywall on. */

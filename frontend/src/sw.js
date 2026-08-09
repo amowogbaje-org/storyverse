@@ -63,13 +63,20 @@ self.addEventListener("push", (event) => {
     payload = { title: "Storyverse", body: event.data.text() };
   }
 
-  const { title, body, url, icon } = payload;
+  const { title, body, url, icon, image } = payload;
 
   event.waitUntil(
     self.registration.showNotification(title || "Storyverse", {
       body,
+      // icon/badge stay the app's own icon (small, always-branded) - a story
+      // cover belongs in `image` instead, which browsers render as a large
+      // banner within the notification body. Passing a rectangular cover
+      // photo as `icon` squeezes it into that small badge-sized slot and
+      // loses the app's own branding, which is why these were kept separate
+      // even when a notification also carries a cover image.
       icon: icon || "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
+      image: image || undefined,
       data: { url: url || "/" },
     })
   );

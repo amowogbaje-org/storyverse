@@ -13,12 +13,23 @@ class StoryPurchaseService
     /** @return array{checkout_url: string, reference: string} */
     public function initiateCheckout(string $gatewayName, User $user, Story $story): array
     {
+        $price = $story->priceFor($user->currency);
+
+        // Guarded even though StoryPurchaseController::checkout() already
+        // checks isPurchasable() first - isPurchasable() and priceFor() both
+        // read the same prices() relation, so they can't actually disagree,
+        // but a null here would otherwise fail confusingly deep inside the
+        // payment gateway call rather than with a clear error.
+        if (! $price) {
+            throw new \RuntimeException("Story #{$story->id} has no price set - checkout should not have been reachable.");
+        }
+
         $gateway = $this->gateways->get($gatewayName);
         $session = $gateway->createStoryPurchaseCheckoutSession(
             $user,
             $story,
-            (float) $story->purchase_price,
-            $story->purchase_currency
+            (float) $price->amount,
+            $price->currency
         );
 
         StoryPurchase::create([
@@ -26,8 +37,8 @@ class StoryPurchaseService
             'story_id' => $story->id,
             'gateway' => $gatewayName,
             'gateway_reference' => $session->reference,
-            'amount' => $story->purchase_price,
-            'currency' => $story->purchase_currency,
+            'amount' => $price->amount,
+            'currency' => $price->currency,
             'status' => 'pending',
         ]);
 

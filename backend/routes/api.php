@@ -33,6 +33,18 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
     Route::post('/auth/google', [AuthController::class, 'googleAuth']);
 
+    // Public - the same list StoryManagementController validates story prices
+    // against and StoryPurchaseController resolves reader prices from (see
+    // config/currencies.php) - the price-per-currency form and the currency
+    // picker in Settings both read this instead of hardcoding the list twice.
+    Route::get('/currencies', function () {
+        return response()->json([
+            'data' => collect(config('currencies'))
+                ->map(fn ($c, $code) => ['code' => $code, ...$c])
+                ->values(),
+        ]);
+    });
+
     // Auth - required
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -62,12 +74,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/me/payouts', [\App\Http\Controllers\Api\PayoutController::class, 'mine']);
         Route::patch('/me/payout-account', [\App\Http\Controllers\Api\PayoutController::class, 'updateAccount']);
 
-        Route::post('/subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::post('/authors/{slug}/tip', [\App\Http\Controllers\Api\TipController::class, 'checkout']);
         Route::post('/stories/{slug}/purchase', [\App\Http\Controllers\Api\StoryPurchaseController::class, 'checkout']);
         Route::get('/stories/{slug}/purchase-status', [\App\Http\Controllers\Api\StoryPurchaseController::class, 'status']);
-        Route::get('/me/subscription', [SubscriptionController::class, 'mySubscription']);
-        Route::post('/me/subscription/cancel', [SubscriptionController::class, 'cancel']);
 
         Route::get('/me/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
         Route::get('/me/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
@@ -77,6 +86,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'store']);
         Route::delete('/me/push-subscriptions', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'destroy']);
         Route::post('/me/push-subscriptions/test', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'test']);
+
+        // Author-or-admin (ownership checked in the controller) - not admin-only,
+        // since an author should see where their own readers drop off without
+        // needing platform-admin access.
+        Route::get('/stories/{slug}/analytics/dropoff', [\App\Http\Controllers\Api\AnalyticsController::class, 'episodeDropoff']);
     });
 
     // Catalog / discovery - optional auth (locked flags / is_liked_by_me depend on auth state,
@@ -107,7 +121,6 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/badges', [BadgeController::class, 'index']);
 
-        Route::get('/subscription-plans', [SubscriptionController::class, 'plans']);
         Route::get('/payment-gateways', [SubscriptionController::class, 'gateways']);
 
         Route::get('/platform-status', function (\App\Services\PlatformMetricsService $metrics) {
@@ -124,6 +137,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/analytics/top-stories', [\App\Http\Controllers\Api\AnalyticsController::class, 'topStories']);
         Route::get('/analytics/funnel', [\App\Http\Controllers\Api\AnalyticsController::class, 'funnel']);
         Route::get('/analytics/events', [\App\Http\Controllers\Api\AnalyticsController::class, 'events']);
+        Route::get('/analytics/retention', [\App\Http\Controllers\Api\AnalyticsController::class, 'retention']);
+        Route::get('/analytics/stickiness', [\App\Http\Controllers\Api\AnalyticsController::class, 'stickiness']);
 
         // Mail-risk mitigation (no transactional email provider yet - see EmailBlacklistController).
         Route::get('/emails/blacklist', [\App\Http\Controllers\Api\Admin\EmailBlacklistController::class, 'index']);

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/common/Container";
 import PasswordInput from "../components/auth/PasswordInput";
 import OtpForm from "../components/auth/OtpForm";
 import GoogleButton from "../components/auth/GoogleButton";
+import { loginUrl } from "../utils/loginUrl";
 
 export default function RegisterPage() {
   const { register, verifyOtp, resendOtp, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", password_confirmation: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState(null);
@@ -21,9 +23,9 @@ export default function RegisterPage() {
   // who's already signed in.
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate("/", { replace: true });
+      navigate(params.get("next") || "/", { replace: true });
     }
-  }, [authLoading, isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated, navigate, params]);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -62,7 +64,7 @@ export default function RegisterPage() {
 
   async function handleVerify(code) {
     const data = await verifyOtp({ email: pendingEmail, code });
-    navigate("/", data.data?.newly_verified ? { state: { welcome: true } } : undefined);
+    navigate(params.get("next") || "/", data.data?.newly_verified ? { state: { welcome: true } } : undefined);
   }
 
   async function handleResend() {
@@ -93,7 +95,7 @@ export default function RegisterPage() {
       </p>
 
       <div className="mt-6">
-        <GoogleButton onError={setError} onSuccess={() => navigate("/")} label="signup_with" />
+        <GoogleButton onError={setError} onSuccess={() => navigate(params.get("next") || "/")} label="signup_with" />
       </div>
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-500">
@@ -156,7 +158,7 @@ export default function RegisterPage() {
       </form>
 
       <p className="mt-5 text-center text-sm text-ink-500">
-        Already have an account? <Link to="/login" className="text-teal-700 hover:underline">Sign in</Link>
+        Already have an account? <Link to={loginUrl(params.get("next") || "/")} className="text-teal-700 hover:underline">Sign in</Link>
       </p>
     </Container>
   );

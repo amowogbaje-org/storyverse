@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
           <StatCard label="Readers" value={t.users} />
           <StatCard label="Published stories" value={t.published_stories} />
           <StatCard label="Total reads" value={t.reads} sub={`${t.completed_reads} completed`} />
-          <StatCard label="Active subscriptions" value={t.active_subscriptions} />
+          <StatCard label="Story purchases" value={t.story_purchases} />
           <StatCard label="Likes" value={t.likes} />
           <StatCard label="Bookmarks" value={t.bookmarks} />
           <StatCard label="Comments" value={t.comments} />

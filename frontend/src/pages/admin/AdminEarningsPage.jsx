@@ -25,26 +25,50 @@ export default function AdminEarningsPage() {
       ) : (
         <>
           <div className="rounded-card border border-gold-500/40 bg-gold-400/10 p-4 text-sm text-ink-700">
-            Estimated from your share of completed reads across the platform in this period — not a
-            contractual payout figure. Revenue is shown per currency since amounts aren't converted.
+            Your share of story sales plus tips for this period, attributed exactly to your stories - not an
+            estimate. Revenue is shown per currency since amounts aren't converted.
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="Your completed reads" value={e.my_completed_reads} />
-            <StatCard label="Platform completed reads" value={e.platform_completed_reads} />
-            <StatCard label="Your revenue share" value={`${e.revenue_share_percent}%`} />
+            <StatCard label="Your share of sales" value={`${e.author_share_percent}%`} />
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-ink-950">Estimated earnings by currency</h3>
-            {Object.keys(e.estimated_earnings_by_currency ?? {}).length ? (
+            <h3 className="mb-2 text-sm font-semibold text-ink-950">Gross story sales by currency</h3>
+            {Object.keys(e.gross_story_sales_by_currency ?? {}).length ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {Object.entries(e.estimated_earnings_by_currency).map(([currency, amount]) => (
+                {Object.entries(e.gross_story_sales_by_currency).map(([currency, amount]) => (
                   <StatCard key={currency} label={currency} value={amount} />
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-ink-500">No successful payments in this period yet.</p>
+              <p className="text-sm text-ink-500">No story sales in this period yet.</p>
+            )}
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink-950">Tips by currency</h3>
+            {Object.keys(e.tips_by_currency ?? {}).length ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Object.entries(e.tips_by_currency).map(([currency, amount]) => (
+                  <StatCard key={currency} label={currency} value={amount} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">No tips in this period yet.</p>
+            )}
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink-950">Your earnings by currency</h3>
+            {Object.keys(e.your_earnings_by_currency ?? {}).length ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Object.entries(e.your_earnings_by_currency).map(([currency, amount]) => (
+                  <StatCard key={currency} label={currency} value={amount} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">Nothing earned in this period yet.</p>
             )}
           </div>
         </>

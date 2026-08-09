@@ -9,6 +9,13 @@ return [
     // bank transfer themselves) via the admin Payouts page.
     'auto_send_enabled' => env('PAYOUTS_AUTO_SEND_ENABLED', false),
 
+    // What an author keeps from a direct story sale (see StoryPurchase) -
+    // the rest is the platform's cut. Unlike the old subscription-revenue
+    // split, this doesn't need a completed-reads proportional estimate:
+    // a purchase is for one specific story, so it's attributed to that
+    // story's author exactly (see GenerateMonthlyPayouts/EarningsController).
+    'author_share_percentage' => (float) env('PAYOUTS_AUTHOR_SHARE_PERCENTAGE', 0.70),
+
     // Skip generating a payout below this amount (per currency) - not worth a
     // bank transfer's fees/effort for a few cents/kobo. The unpaid amount is
     // simply not recorded as a payout that month; it isn't carried forward

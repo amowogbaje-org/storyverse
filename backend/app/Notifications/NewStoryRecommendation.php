@@ -48,7 +48,7 @@ class NewStoryRecommendation extends Notification
             'title' => 'New story you might like 📖',
             'body' => "\"{$this->story->title}\" just went up in {$this->categoryLabel()}.",
             'url' => "/stories/{$this->story->slug}",
-            'icon' => $this->story->cover_image_url,
+            'image' => $this->story->cover_image_url,
         ];
     }
 }

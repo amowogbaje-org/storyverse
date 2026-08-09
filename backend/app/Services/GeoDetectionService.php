@@ -2,12 +2,28 @@
 
 namespace App\Services;
 
-use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
 
 class GeoDetectionService
 {
     private const FALLBACK_COUNTRY = 'US';
+
+    // Direct country -> currency mapping, one entry per currency in
+    // config/currencies.php - that config file is the actual source of truth
+    // for which currencies are usable at all (story pricing, checkout), this
+    // just says which country most naturally maps to each. Previously this
+    // went through SubscriptionPlan (whichever plan existed for a country
+    // decided its currency); with subscriptions gone as a product, currency
+    // detection needed its own home instead of piggybacking on that table.
+    private const COUNTRY_CURRENCY = [
+        'US' => 'USD',
+        'GB' => 'GBP',
+        'NG' => 'NGN',
+        'PH' => 'PHP',
+        'IN' => 'INR',
+        'ID' => 'IDR',
+        'CA' => 'CAD',
+    ];
 
     public function detect(Request $request): array
     {
@@ -30,18 +46,19 @@ class GeoDetectionService
 
     private function resolve(string $countryCode): array
     {
-        $plan = SubscriptionPlan::where('country_code', $countryCode)
-            ->where('is_active', true)
-            ->first();
+        $countryCode = strtoupper($countryCode);
+        $currency = self::COUNTRY_CURRENCY[$countryCode] ?? self::COUNTRY_CURRENCY[self::FALLBACK_COUNTRY];
 
-        $plan ??= SubscriptionPlan::where('country_code', self::FALLBACK_COUNTRY)
-            ->where('is_active', true)
-            ->first();
+        // Never hand back a currency this app doesn't actually support for
+        // pricing/checkout, even if COUNTRY_CURRENCY above and
+        // config/currencies.php ever drift out of sync.
+        if (! array_key_exists($currency, config('currencies'))) {
+            $currency = 'USD';
+        }
 
         return [
             'country_code' => $countryCode,
-            'currency' => $plan?->currency ?? 'USD',
-            'matched_plan_id' => $plan?->id,
+            'currency' => $currency,
         ];
     }
 

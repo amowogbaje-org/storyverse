@@ -96,7 +96,7 @@ class StoryController extends Controller
     {
         $story = Story::where('slug', $slug)
             ->where('status', 'published')
-            ->with(['penName', 'categories', 'genres', 'publishedEpisodes'])
+            ->with(['penName', 'categories', 'genres', 'publishedEpisodes', 'prices'])
             ->firstOrFail();
 
         $user = $this->currentUser($request);
@@ -129,7 +129,7 @@ class StoryController extends Controller
                 'title' => $episode->title,
                 'episode_number' => $episode->episode_number,
                 'locked' => $locked,
-                'lock_reason' => $this->access->lockReason($story, $episode, $user),
+                'lock_reason' => $this->access->lockReasonForLimit($limit, $episode, $user),
                 'reader_progress_percent' => $episodeProgress[$episode->id] ?? null,
             ];
         });
