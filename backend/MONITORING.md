@@ -64,3 +64,40 @@ effect automatically because Telescope's own published `config/telescope.php`
 reads `'enabled' => env('TELESCOPE_ENABLED', true)` by default - nothing
 further to wire up on our side, just confirm that line is still there after
 `telescope:install` generates the file.
+
+### Accessing the dashboard (JWT app, no session login)
+
+This app authenticates via a JWT bearer token on every API request - there's
+no Laravel session/web-guard login anywhere, which is what Telescope's
+default `Authorize` middleware expects to check against
+(`Auth::user()` + the `viewTelescope` gate in `TelescopeServiceProvider`).
+Visiting `/telescope` in a plain browser tab has no bearer token attached at
+all, so that gate can never pass - you'd be locked out regardless of role.
+
+`App\Http\Middleware\TelescopeAccessKey` replaces that with a shared-secret
+passkey instead. To wire it up, after running `telescope:install`, open your
+generated `config/telescope.php` and find the `middleware` array - swap out
+`Laravel\Telescope\Http\Middleware\Authorize::class` for
+`App\Http\Middleware\TelescopeAccessKey::class`.
+
+Then:
+
+1. Generate a real secret and set it in `.env`: `TELESCOPE_ACCESS_KEY=$(openssl rand -hex 32)`
+2. Visit `https://yourapp.test/telescope?key=<that secret>` once
+3. It unlocks Telescope for your current browser session (not a persistent
+   cookie with the key in it - just a session flag) and immediately
+   redirects to strip `?key=...` back out of the address bar
+4. You'll need to repeat step 2 whenever the session ends (browser closed,
+   session lifetime expires)
+
+Two things worth being deliberate about:
+- The key itself does still pass through the URL once per unlock, which
+  means it can land in server access logs even though it's stripped from
+  the browser's address bar immediately after - treat it like any other
+  credential (rotate it if you think it leaked, don't paste URLs containing
+  it into chat/screenshots).
+- This is a shared secret, not per-person access - anyone with the key can
+  see everything Telescope records (request bodies, query bindings, etc,
+  minus what's redacted - see `hideRequestParameters`/`hideRequestHeaders` in
+  `TelescopeServiceProvider`). Fine for a small team; if that stops being
+  true, this is the first thing to revisit.

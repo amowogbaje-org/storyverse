@@ -49,11 +49,18 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
     }
 
     /**
-     * Who can open /telescope outside local. Gated on the same 'admin' role
-     * every other admin-only endpoint in this app uses (see RequireAdmin
-     * middleware) rather than Telescope's own default example (a hardcoded
-     * list of email addresses) - one less place to remember to update when
-     * admin access changes.
+     * Who can open /telescope outside local, via Laravel's own Auth/Gate
+     * system - gated on the same 'admin' role every other admin-only
+     * endpoint in this app uses (see RequireAdmin middleware).
+     *
+     * NOT actually consulted if you've swapped config/telescope.php's
+     * `middleware` entry for App\Http\Middleware\TelescopeAccessKey (see
+     * MONITORING.md) - that replaces Telescope's default Authorize
+     * middleware, which is the thing that calls this gate in the first
+     * place. This app has no session-based login for Auth::user() to
+     * resolve here, so the passkey approach is what's actually in use.
+     * Left in place in case you ever add real session-based admin login and
+     * want to switch back to role-based gating instead.
      */
     protected function gate(): void
     {
