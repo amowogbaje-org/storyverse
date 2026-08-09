@@ -40,6 +40,7 @@ return new class extends Migration
         });
 
         $schema->create('telescope_entries_tags', function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->uuid('entry_uuid');
             $table->string('tag');
 
@@ -53,6 +54,7 @@ return new class extends Migration
         });
 
         $schema->create('telescope_monitoring', function (Blueprint $table) {
+            $table->engine = 'InnoDB';
             $table->string('tag')->primary();
         });
     }
