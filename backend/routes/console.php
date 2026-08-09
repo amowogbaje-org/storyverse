@@ -15,6 +15,20 @@ Schedule::command('app:purge-unverified-users')->daily();
 // Daily analytics summary email - see SendAnalyticsSummary.
 Schedule::command('app:send-analytics-summary')->dailyAt('08:00');
 
+// AI styling pass over freshly written/edited episodes, 10 at a time - see
+// StyleEpisodes. 15 minutes keeps the delay between an author saving an
+// episode and it appearing styled to readers short, without calling the AI
+// provider so often that cost/rate-limits become a concern.
+Schedule::command('app:style-episodes')->everyFifteenMinutes();
+
+// Telescope's entry tables grow unbounded otherwise - keeps 48 hours, which
+// is enough to investigate anything reported same-day or the morning after.
+// Guarded so this is a no-op (not an error) before Telescope is installed -
+// see the README's "Setting up Telescope" section.
+if (class_exists(\Laravel\Telescope\Telescope::class)) {
+    Schedule::command('telescope:prune --hours=48')->daily();
+}
+
 // Re-engagement notifications (in-app + push) - staggered so they don't all
 // hit the DB/push provider at once. See each command's docblock for the
 // rate-limiting/randomization that keeps these from feeling spammy.

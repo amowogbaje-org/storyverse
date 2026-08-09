@@ -26,7 +26,7 @@ export default function TipWidget({ penNameSlug, displayName }) {
   const [error, setError] = useState(null);
 
   const gateways = gatewaysData?.data ?? ["flutterwave"];
-  const gateway = gateways[0]; // single-provider phase - see SubscriptionPage for the same pattern
+  const gateway = gateways[0]; // single-provider phase - see BuyStoryButton for the same pattern
 
   function pickCurrency(c) {
     setCurrency(c);

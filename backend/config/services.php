@@ -50,4 +50,23 @@ return [
         // plus that provider's own API key in config/ai.php; no code change.
         'provider' => env('AI_SEARCH_PROVIDER', 'gemini'),
     ],
+
+    'episode_styling' => [
+        // Which Laravel AI SDK provider EpisodeStylingAgent uses - gemini,
+        // ollama, and deepseek all already have driver config in config/ai.php
+        // (just add that provider's key/URL there), so switching is only this
+        // env var, never a code change. Defaults to gemini since it's the one
+        // already wired up for AI search above.
+        'provider' => env('EPISODE_STYLING_PROVIDER', 'gemini'),
+
+        // How many unstyled episodes StyleEpisodes sends to the agent per run
+        // (scheduled every 15 minutes - see routes/console.php). Keep this
+        // small: it bounds both API cost per run and how long one run takes.
+        'batch_size' => env('EPISODE_STYLING_BATCH_SIZE', 10),
+
+        // After this many consecutive failures on the same episode, stop
+        // retrying and fall back to showing the reader the raw text as-is
+        // rather than silently retrying forever every 15 minutes.
+        'max_attempts' => env('EPISODE_STYLING_MAX_ATTEMPTS', 5),
+    ],
 ];

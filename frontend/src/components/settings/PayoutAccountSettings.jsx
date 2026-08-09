@@ -53,7 +53,7 @@ export default function PayoutAccountSettings() {
     <div className="mt-6 rounded-card border border-ink-950/10 bg-white/40 p-4">
       <p className="text-sm font-medium text-ink-950">Payout account</p>
       <p className="mt-0.5 text-xs text-ink-500">
-        Where your monthly earnings (subscription share + tips) get sent. Payouts are generated at the start of
+        Where your monthly earnings (story sales share + tips) get sent. Payouts are generated at the start of
         each month for the month before.
       </p>
 

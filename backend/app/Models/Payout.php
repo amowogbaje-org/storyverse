@@ -9,7 +9,7 @@ class Payout extends Model
 {
     protected $fillable = [
         'user_id', 'period_start', 'period_end',
-        'subscription_share_amount', 'tips_amount', 'total_amount', 'currency',
+        'subscription_share_amount', 'story_sales_amount', 'tips_amount', 'total_amount', 'currency',
         'status', 'payout_account_name', 'payout_account_number', 'payout_bank_name', 'payout_bank_code',
         'gateway_transfer_id', 'failure_reason', 'paid_at',
     ];

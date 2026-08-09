@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\RequireAdmin::class,
             'author_or_admin' => \App\Http\Middleware\RequireAuthorOrAdmin::class,
         ]);
+
+        // Global, not route-specific - "which endpoints are slow" is exactly
+        // the thing you don't know in advance. See LogSlowRequests for what
+        // gets logged and logging.slow_request_threshold_ms for the cutoff.
+        $middleware->append(\App\Http\Middleware\LogSlowRequests::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

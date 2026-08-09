@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
-use App\Models\Payment;
-use App\Models\SubscriptionPlan;
 use App\Services\BadgeMetricResolver;
 use Tests\Feature\Concerns\CreatesStoryFixtures;
 use Tests\TestCase;
@@ -13,43 +11,53 @@ class BadgeMetricResolverTest extends TestCase
 {
     use CreatesStoryFixtures;
 
-    public function test_annual_plan_purchased_is_true_only_after_a_successful_yearly_payment(): void
+    /**
+     * annual_plan_purchased and premium_months_consecutive were removed along
+     * with the subscription-tied badges that used them (Annual VIP, Supporter,
+     * Loyal Patron, etc - see BadgeSeeder) when subscriptions were removed as
+     * the premium-access mechanism. They now behave like any other
+     * unrecognized criteria_type: resolve() returns null and the badge is
+     * simply never auto-awarded, same as bookmarked_before_trending below.
+     */
+    public function test_annual_plan_purchased_and_premium_months_consecutive_are_no_longer_resolvable(): void
     {
         $reader = $this->createReader();
-        $plan = SubscriptionPlan::create([
-            'name' => 'Annual', 'country_code' => 'US', 'currency' => 'USD',
-            'price' => 100, 'billing_interval' => 'year', 'is_active' => true,
-        ]);
-
         $resolver = app(BadgeMetricResolver::class);
-        $this->assertSame(0, $resolver->resolve($reader, 'annual_plan_purchased'));
 
-        Payment::create([
-            'user_id' => $reader->id, 'plan_id' => $plan->id, 'gateway' => 'stripe',
-            'gateway_reference' => 'ref1', 'amount' => 100, 'currency' => 'USD', 'status' => 'success',
-        ]);
-
-        $this->assertSame(1, $resolver->resolve($reader, 'annual_plan_purchased'));
+        $this->assertNull($resolver->resolve($reader, 'annual_plan_purchased'));
+        $this->assertNull($resolver->resolve($reader, 'premium_months_consecutive'));
     }
 
-    public function test_consecutive_paid_months_counts_the_longest_unbroken_run(): void
+    /**
+     * cumulative_spend backs the "First Unlock"/"Big Spender" badges - it
+     * used to only sum the payments table (subscriptions), which would have
+     * silently stopped counting anything the moment subscriptions were
+     * removed, even though story purchases are real spend too.
+     */
+    public function test_cumulative_spend_counts_story_purchases(): void
     {
+        ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
         $reader = $this->createReader();
-        $plan = SubscriptionPlan::create([
-            'name' => 'Monthly', 'country_code' => 'US', 'currency' => 'USD',
-            'price' => 10, 'billing_interval' => 'month', 'is_active' => true,
+
+        $story->purchases()->create([
+            'user_id' => $reader->id, 'gateway' => 'stripe', 'gateway_reference' => 'ref-1',
+            'amount' => 12, 'currency' => 'USD', 'status' => 'success',
         ]);
 
-        foreach ([now()->subMonths(5), now()->subMonths(4), now()->subMonths(3), now()->subMonths(1)] as $when) {
-            Payment::create([
-                'user_id' => $reader->id, 'plan_id' => $plan->id, 'gateway' => 'stripe',
-                'gateway_reference' => 'ref-'.$when->timestamp, 'amount' => 10, 'currency' => 'USD',
-                'status' => 'success', 'created_at' => $when,
-            ]);
-        }
+        $this->assertSame(12, app(BadgeMetricResolver::class)->resolve($reader, 'cumulative_spend'));
+    }
 
-        // 5,4,3 months ago are consecutive (streak of 3); 1 month ago is isolated.
-        $this->assertSame(3, app(BadgeMetricResolver::class)->resolve($reader, 'premium_months_consecutive'));
+    public function test_cumulative_spend_ignores_a_pending_purchase(): void
+    {
+        ['story' => $story] = $this->createStoryWithEpisodes(['access_type' => 'premium']);
+        $reader = $this->createReader();
+
+        $story->purchases()->create([
+            'user_id' => $reader->id, 'gateway' => 'stripe', 'gateway_reference' => 'ref-2',
+            'amount' => 12, 'currency' => 'USD', 'status' => 'pending',
+        ]);
+
+        $this->assertSame(0, app(BadgeMetricResolver::class)->resolve($reader, 'cumulative_spend'));
     }
 
     public function test_all_categories_explored_requires_reading_progress_in_every_category(): void

@@ -29,6 +29,7 @@ class User extends Authenticatable
     protected $casts = [
         "notification_preferences" => "array",
         "email_verified_at" => "datetime",
+        "premium_access_until" => "datetime",
     ];
 
     protected static function booted(): void
@@ -148,11 +149,25 @@ class User extends Authenticatable
         return now($this->resolvedTimezone())->hour === $this->notificationTargetHour($defaultEveningHour);
     }
 
+    /**
+     * @deprecated Subscriptions are no longer the premium-access mechanism
+     * (stories are bought individually - see story_prices/StoryAccessService).
+     * Kept only so historical Subscription rows remain queryable (author
+     * payout/earnings history) and this doesn't become a hard error for any
+     * code that still calls it. Use hasBonusPremiumAccess() for actual access
+     * checks going forward.
+     */
     public function hasActivePremiumSubscription(): bool
     {
         return $this->subscriptions()
             ->where("status", "active")
             ->where("current_period_end", ">", now())
             ->exists();
+    }
+
+    /** Temporary premium access from a reward (badge/referral), independent of any purchase - see BonusAccessService. */
+    public function hasBonusPremiumAccess(): bool
+    {
+        return $this->premium_access_until !== null && $this->premium_access_until->isFuture();
     }
 }

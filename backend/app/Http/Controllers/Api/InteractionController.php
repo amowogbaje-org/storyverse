@@ -140,8 +140,17 @@ class InteractionController extends Controller
         $story = Story::where('slug', $slug)->firstOrFail();
         $episode = $story->episodes()->where('episode_number', $episodeNumber)->firstOrFail();
 
-        if (! $this->access->canAccessEpisode($story, $episode, $user)) {
-            return $this->error($this->access->lockReason($story, $episode, $user), 'This episode is locked.', 403);
+        // Computed once and reused for both the allow/deny check and the
+        // error reason - canAccessEpisode() + lockReason() each independently
+        // call accessibleEpisodeLimit() internally, which runs a purchase
+        // lookup and an uncached prior-reading-history query; calling both
+        // back-to-back like the old code did doubled that DB work on every
+        // single progress update for no reason.
+        $limit = $this->access->accessibleEpisodeLimit($story, $user);
+        $lockReason = $this->access->lockReasonForLimit($limit, $episode, $user);
+
+        if ($lockReason !== null) {
+            return $this->error($lockReason, 'This episode is locked.', 403);
         }
 
         $data = $request->validate([

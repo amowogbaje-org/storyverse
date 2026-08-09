@@ -7,12 +7,8 @@ import Seo from "../components/common/Seo";
 import { isPushSupported, getPushSupportStatus, subscribeToPush, unsubscribeFromPush, getCurrentPushSubscription } from "../utils/push";
 import PayoutAccountSettings from "../components/settings/PayoutAccountSettings";
 import PasswordSettings from "../components/settings/PasswordSettings";
-
-const CURRENCIES = [
-  { code: "USD", label: "USD ($) — United States" },
-  { code: "GBP", label: "GBP (£) — United Kingdom" },
-  { code: "NGN", label: "NGN (₦) — Nigeria" },
-];
+import ThemeSettings from "../components/settings/ThemeSettings";
+import { useCurrencies } from "../hooks/queries/useCurrencies";
 
 const PUSH_UNSUPPORTED_REASONS = {
   insecure_context: "Push requires a secure connection (HTTPS) - this page isn't loaded over one right now.",
@@ -32,6 +28,8 @@ const NOTIFICATION_TYPES = [
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
+  const { data: currenciesData } = useCurrencies();
+  const currencies = currenciesData?.data ?? [];
   const [displayName, setDisplayName] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [saving, setSaving] = useState(false);
@@ -191,7 +189,7 @@ export default function ProfilePage() {
             value={currency} onChange={(e) => setCurrency(e.target.value)}
             className="w-full rounded-card border border-ink-950/15 bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-gold-500"
           >
-            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            {currencies.map((c) => <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.label}</option>)}
           </select>
           <p className="mt-1 text-xs text-ink-500">Detected automatically at sign-up; change it any time.</p>
         </div>
@@ -207,6 +205,7 @@ export default function ProfilePage() {
         </button>
       </form>
 
+      <ThemeSettings />
       <PasswordSettings />
 
       <Link
@@ -231,13 +230,19 @@ export default function ProfilePage() {
           {isPushSupported() ? (
             <button
               type="button"
+              role="switch"
+              aria-checked={pushEnabled}
               onClick={togglePush}
               disabled={pushBusy}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
-                pushEnabled ? "border border-ink-950/15 text-ink-700" : "bg-ink-950 text-parchment-50"
+              className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                pushEnabled ? "bg-gold-500" : "bg-ink-950/15"
               }`}
             >
-              {pushBusy ? "…" : pushEnabled ? "Turn off" : "Turn on"}
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  pushEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
             </button>
           ) : (
             <span className="shrink-0 text-right text-xs text-ink-400">

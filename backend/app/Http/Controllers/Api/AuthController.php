@@ -10,7 +10,10 @@ use App\Notifications\WelcomeNotification;
 use App\Services\GeoDetectionService;
 use App\Services\JwtService;
 use App\Services\ReferralService;
+use Firebase\JWT\JWK;
+use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -439,30 +442,100 @@ class AuthController extends Controller
      * local JWKS verification - one HTTP call, no key rotation to manage,
      * which is a fine tradeoff at this traffic volume.
      */
+    /**
+     * Verifies a Google ID token locally against Google's own public keys,
+     * rather than calling Google's tokeninfo endpoint (what this used to
+     * do). tokeninfo is explicitly a debugging endpoint, not meant for
+     * production auth: it adds a network round-trip to every single login
+     * (latency, plus a real external failure point - Google's own guidance
+     * on this is that it "involves an HTTP round trip, introducing latency
+     * and the potential for network breakage"), and is rate-limited in a way
+     * a busy app can realistically hit. That combination is the most likely
+     * explanation for intermittent "signed in with Google but nothing
+     * happened" reports: a transient tokeninfo failure or a rate limit both
+     * silently return null here and read as "invalid token" to the caller.
+     *
+     * Google's own public keys change rarely, so they're cached for an hour
+     * (cache_ttl_seconds below) rather than fetched per login - most logins
+     * now make zero outbound network calls for verification at all, only a
+     * local signature check. If a token's kid isn't in the cached set (keys
+     * were rotated since the last fetch), the cache is bypassed once for a
+     * fresh fetch before giving up - the same pattern Google's own client
+     * libraries use.
+     */
     private function verifyGoogleIdToken(string $idToken): ?array
     {
-        try {
-            $response = Http::get('https://oauth2.googleapis.com/tokeninfo', ['id_token' => $idToken]);
-        } catch (\Throwable $e) {
-            return null;
-        }
-
-        if (! $response->ok()) {
-            return null;
-        }
-
-        $payload = $response->json();
         $clientId = config('services.google.client_id');
 
-        if (! $clientId || ($payload['aud'] ?? null) !== $clientId) {
+        if (! $clientId) {
             return null;
         }
 
-        if (empty($payload['email']) || ($payload['email_verified'] ?? 'false') === 'false') {
+        try {
+            $payload = $this->decodeGoogleIdToken($idToken, forceFreshKeys: false)
+                ?? $this->decodeGoogleIdToken($idToken, forceFreshKeys: true);
+        } catch (\Throwable $e) {
+            Log::warning('Google ID token verification failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if (! $payload) {
+            return null;
+        }
+
+        // Claims JWT::decode's signature/exp check doesn't cover - Google's
+        // own guidance on what a client must still verify itself: issuer,
+        // audience (this is OUR app the token was minted for, not some other
+        // site using the same Google Sign-In popup flow), and a verified email.
+        $iss = $payload['iss'] ?? '';
+        if (! in_array($iss, ['accounts.google.com', 'https://accounts.google.com'], true)) {
+            return null;
+        }
+
+        if (($payload['aud'] ?? null) !== $clientId) {
+            return null;
+        }
+
+        if (empty($payload['email']) || ! ($payload['email_verified'] ?? false)) {
             return null;
         }
 
         return $payload;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function decodeGoogleIdToken(string $idToken, bool $forceFreshKeys): ?array
+    {
+        $cacheKey = 'google_jwks';
+        $cacheTtlSeconds = 3600;
+
+        if ($forceFreshKeys) {
+            Cache::forget($cacheKey);
+        }
+
+        $jwks = Cache::remember($cacheKey, $cacheTtlSeconds, function () {
+            $response = Http::timeout(5)->get('https://www.googleapis.com/oauth2/v3/certs');
+
+            if (! $response->ok()) {
+                throw new \RuntimeException('Could not fetch Google public keys: HTTP '.$response->status());
+            }
+
+            return $response->json();
+        });
+
+        $keys = JWK::parseKeySet($jwks);
+
+        try {
+            $decoded = JWT::decode($idToken, $keys);
+        } catch (\Firebase\JWT\SignatureInvalidException|\UnexpectedValueException $e) {
+            // Most likely an unrecognized kid because Google rotated keys
+            // since this was cached - let the caller retry once with a
+            // forced-fresh fetch rather than treating this as a bad token.
+            return null;
+        }
+
+        return (array) $decoded;
     }
 
     public function me(Request $request)
@@ -624,15 +697,15 @@ class AuthController extends Controller
     }
 
     /**
-     * has_active_premium_subscription runs a query, so it's attached here explicitly
-     * rather than via a global User::$appends — that would silently re-run a
-     * subscription lookup for every user attached to every comment/list response.
+     * has_premium_access runs a query, so it's attached here explicitly
+     * rather than via a global User::$appends - that would silently re-run
+     * this lookup for every user attached to every comment/list response.
      */
     private function userPayload(User $user): array
     {
         return [
             ...$user->toArray(),
-            'has_active_premium_subscription' => $user->hasActivePremiumSubscription(),
+            'has_premium_access' => $user->hasBonusPremiumAccess(),
             // password itself is never exposed ($hidden on the model) - just
             // whether one is set, so the frontend knows whether a Google-only
             // account needs a "set password" form or a "change password" one.

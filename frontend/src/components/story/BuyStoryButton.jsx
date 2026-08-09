@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { usePaymentGateways } from "../../hooks/queries/useSubscriptions";
 import { usePurchaseStatus, useBuyStory } from "../../hooks/mutations/useBuyStory";
-
-const CURRENCY_SYMBOLS = { USD: "$", GBP: "£", NGN: "₦" };
+import { useCurrencies } from "../../hooks/queries/useCurrencies";
 
 /**
  * Only renders anything once we know the story actually has a purchase price
@@ -14,11 +13,13 @@ export default function BuyStoryButton({ slug }) {
   const { isAuthenticated } = useAuth();
   const { data: statusData, isLoading } = usePurchaseStatus(slug, isAuthenticated);
   const { data: gatewaysData } = usePaymentGateways();
+  const { data: currenciesData } = useCurrencies();
   const buy = useBuyStory(slug);
   const [gateway, setGateway] = useState(null);
   const [error, setError] = useState(null);
 
   const gateways = gatewaysData?.data ?? ["flutterwave"];
+  const currencies = currenciesData?.data ?? [];
 
   useEffect(() => {
     if (gateways.length >= 1 && !gateway) setGateway(gateways[0]);
@@ -37,7 +38,10 @@ export default function BuyStoryButton({ slug }) {
     );
   }
 
-  const symbol = CURRENCY_SYMBOLS[status.currency] ?? `${status.currency} `;
+  // The price shown here is already resolved to this reader's own currency
+  // by the backend (see Story::priceFor) - this only needs the matching
+  // symbol to display it with, not a currency-to-symbol map hardcoded twice.
+  const symbol = currencies.find((c) => c.code === status.currency)?.symbol ?? `${status.currency} `;
 
   async function handleBuy() {
     setError(null);

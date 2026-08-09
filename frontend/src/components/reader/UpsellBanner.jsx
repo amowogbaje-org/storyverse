@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useLoginUrl } from "../../hooks/useLoginUrl";
 
-export default function UpsellBanner({ reason }) {
+export default function UpsellBanner({ reason, slug }) {
+  const loginHref = useLoginUrl();
+
   if (!reason) return null;
 
   const copy =
@@ -9,13 +12,13 @@ export default function UpsellBanner({ reason }) {
           title: "Create a free account to keep reading",
           body: "You've reached the free preview limit. Registered readers get more episodes on every story.",
           cta: "Sign in or register",
-          to: "/login",
+          to: loginHref,
         }
       : {
-          title: "This episode is for premium readers",
-          body: "Subscribe to unlock every episode of this story, priced for where you live.",
-          cta: "See subscription plans",
-          to: "/subscription",
+          title: "This episode is for readers who own this book",
+          body: "Buy this story to unlock every episode, priced for where you live.",
+          cta: "Buy this book",
+          to: `/stories/${slug}`,
         };
 
   return (

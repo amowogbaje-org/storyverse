@@ -72,10 +72,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400;1,7..72,500&display=swap"
       rel="stylesheet"
     />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Applies the saved/OS theme before first paint, so there's no flash
+         of the light theme for someone who's chosen dark. Kept tiny and
+         inline (not a module) so it runs before any CSS/JS chunk loads.
+         Mirrors the storage key/logic in src/context/ThemeContext.jsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("storyverse:theme");
+          var dark = stored === "dark" || (!stored && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <!-- APP:START / APP:END mark where the postbuild prerenderer injects a

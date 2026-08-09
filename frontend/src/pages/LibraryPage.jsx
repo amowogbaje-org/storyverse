@@ -1,5 +1,6 @@
 import { useMyBookmarks } from "../hooks/queries/useLibrary";
 import { useAuth } from "../context/AuthContext";
+import { useLoginUrl } from "../hooks/useLoginUrl";
 import StoryCard from "../components/story/StoryCard";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import EmptyState from "../components/common/EmptyState";
@@ -8,6 +9,7 @@ import { Link } from "react-router-dom";
 
 export default function LibraryPage() {
   const { isAuthenticated } = useAuth();
+  const loginHref = useLoginUrl();
   const { data, isLoading } = useMyBookmarks(isAuthenticated);
   const stories = data?.data ?? [];
 
@@ -17,7 +19,7 @@ export default function LibraryPage() {
         <EmptyState
           title="Sign in to see your library"
           hint="Bookmarked stories and reading progress live here."
-          action={<Link to="/login" className="rounded-full bg-ink-950 px-4 py-2 text-sm text-parchment-50">Sign in</Link>}
+          action={<Link to={loginHref} className="rounded-full bg-ink-950 px-4 py-2 text-sm text-parchment-50">Sign in</Link>}
         />
       </Container>
     );

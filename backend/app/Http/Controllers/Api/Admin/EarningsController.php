@@ -3,19 +3,23 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Payment;
-use App\Models\ReadingProgress;
+use App\Models\PenName;
 use App\Models\Story;
+use App\Models\StoryPurchase;
+use App\Models\Tip;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * "there should be a session that shows their earnings" — per the project brief.
- * There's no per-story payment attribution in this schema (subscriptions are
- * platform-wide, not tied to a specific story), so this estimates each author's
- * share of subscription revenue by their share of completed reads in the period.
- * That's a policy choice, not a contractual figure — flagged explicitly in the
- * response so nobody mistakes it for an exact payout.
+ * "there should be a session that shows their earnings" - per the project brief.
+ *
+ * This used to estimate each author's share of subscription revenue by their
+ * share of completed reads platform-wide, since subscription revenue
+ * couldn't be tied to any one story. Now that stories are sold individually
+ * (see story_prices/StoryPurchase), a purchase already IS attributed to one
+ * specific story, so this reports the real number for the period rather than
+ * an estimate - see GenerateMonthlyPayouts for the same figures used to
+ * actually generate a payout.
  */
 class EarningsController extends Controller
 {
@@ -29,28 +33,39 @@ class EarningsController extends Controller
             ? Story::pluck('id')
             : Story::whereIn('pen_name_id', $user->penNames()->pluck('id'))->pluck('id');
 
-        $myCompletedReads = ReadingProgress::whereIn('story_id', $storyIds)
-            ->where('completed_at', '>=', $since)
-            ->count();
-
-        $platformCompletedReads = ReadingProgress::where('completed_at', '>=', $since)->count();
-
-        $share = $platformCompletedReads > 0 ? $myCompletedReads / $platformCompletedReads : 0.0;
-
-        $platformRevenue = Payment::where('status', 'success')
+        $grossSalesByCurrency = StoryPurchase::whereIn('story_id', $storyIds)
+            ->where('status', 'success')
             ->where('created_at', '>=', $since)
             ->select('currency', DB::raw('sum(amount) as total'))
             ->groupBy('currency')
             ->pluck('total', 'currency');
 
+        $penNameIds = $user->role === 'admin' ? PenName::pluck('id') : $user->penNames()->pluck('id');
+
+        $tipsByCurrency = Tip::whereIn('pen_name_id', $penNameIds)
+            ->where('status', 'success')
+            ->where('created_at', '>=', $since)
+            ->select('currency', DB::raw('sum(amount) as total'))
+            ->groupBy('currency')
+            ->pluck('total', 'currency');
+
+        $sharePercent = (float) config('payouts.author_share_percentage');
+
+        $currencies = $grossSalesByCurrency->keys()->merge($tipsByCurrency->keys())->unique();
+        $totalsByCurrency = $currencies->mapWithKeys(function ($currency) use ($grossSalesByCurrency, $tipsByCurrency, $sharePercent) {
+            $yourShareOfSales = round(($grossSalesByCurrency[$currency] ?? 0) * $sharePercent, 2);
+            $tips = round((float) ($tipsByCurrency[$currency] ?? 0), 2);
+
+            return [$currency => round($yourShareOfSales + $tips, 2)];
+        });
+
         return $this->ok([
             'period_days' => $days,
-            'my_completed_reads' => $myCompletedReads,
-            'platform_completed_reads' => $platformCompletedReads,
-            'revenue_share_percent' => round($share * 100, 2),
-            'estimated_earnings_by_currency' => $platformRevenue->map(fn ($total) => round($total * $share, 2)),
-            'platform_revenue_by_currency' => $platformRevenue,
-            'note' => 'Estimated from a completed-reads revenue-share model, not a contractual payout figure.',
+            'author_share_percent' => round($sharePercent * 100, 2),
+            'gross_story_sales_by_currency' => $grossSalesByCurrency,
+            'tips_by_currency' => $tipsByCurrency,
+            'your_earnings_by_currency' => $totalsByCurrency,
+            'note' => 'Your share of story sales plus tips for this period. Story purchases are attributed to your stories exactly, not estimated.',
         ]);
     }
 }

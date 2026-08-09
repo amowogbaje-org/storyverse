@@ -113,7 +113,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     isAuthenticated: !!user,
-    isPremium: !!user?.has_active_premium_subscription,
+    isPremium: !!user?.has_premium_access,
     loading,
     login,
     register,

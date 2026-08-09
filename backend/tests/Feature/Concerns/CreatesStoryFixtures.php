@@ -7,6 +7,7 @@ use App\Models\Episode;
 use App\Models\PenName;
 use App\Models\Story;
 use App\Models\User;
+use App\Services\PlatformMetricsService;
 use Illuminate\Support\Str;
 
 /**
@@ -16,6 +17,21 @@ use Illuminate\Support\Str;
  */
 trait CreatesStoryFixtures
 {
+    /**
+     * Mocks PlatformMetricsService so a test doesn't need real read-count
+     * data to cross the platform-wide monetization threshold - see
+     * StoryAccessService::accessibleEpisodeLimit(). $hasPriorAccess controls
+     * the grandfathering check (a reader who already has reading history on
+     * a story before monetization turned on keeps full access).
+     */
+    protected function monetizationEnabled(bool $hasPriorAccess = false): void
+    {
+        $this->mock(PlatformMetricsService::class, function ($mock) use ($hasPriorAccess) {
+            $mock->shouldReceive('isMonetizationEnabled')->andReturn(true);
+            $mock->shouldReceive('hasPriorAccess')->andReturn($hasPriorAccess);
+        });
+    }
+
     protected function createAuthor(): User
     {
         return User::create([

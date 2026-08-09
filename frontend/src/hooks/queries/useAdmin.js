@@ -74,6 +74,33 @@ export function useAdminTopStories(days = 30, enabled) {
   });
 }
 
+export function useAdminRetention(cohortWeeks = 8, trackWeeks = 5, enabled) {
+  return useQuery({
+    queryKey: ["admin", "analytics", "retention", cohortWeeks, trackWeeks],
+    queryFn: async () =>
+      (await api.get("/admin/analytics/retention", { params: { cohort_weeks: cohortWeeks, track_weeks: trackWeeks } })).data,
+    enabled,
+  });
+}
+
+export function useAdminStickiness(enabled) {
+  return useQuery({
+    queryKey: ["admin", "analytics", "stickiness"],
+    queryFn: async () => (await api.get("/admin/analytics/stickiness")).data,
+    enabled,
+  });
+}
+
+// Not admin-only on the backend (authors can see their own story's drop-off
+// too), but this hook lives alongside the other analytics hooks for symmetry.
+export function useStoryDropoff(slug, enabled) {
+  return useQuery({
+    queryKey: ["analytics", "dropoff", slug],
+    queryFn: async () => (await api.get(`/stories/${slug}/analytics/dropoff`)).data,
+    enabled: enabled && !!slug,
+  });
+}
+
 export function useAdminEmailBlacklist(enabled) {
   return useQuery({
     queryKey: ["admin", "email-blacklist"],

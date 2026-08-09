@@ -54,14 +54,11 @@ class BadgeSeeder extends Seeder
             $this->b('Super Referrer', 'referrals', 'gold', 'referrals_verified', 10),
             $this->b('Referral Legend', 'referrals', 'platinum', 'referrals_verified', 25, 'recommendation'),
 
-            // Spending / Subscription
+            // Spending (purchase-based - subscription-tied badges removed
+            // along with the subscription product itself; see the migration
+            // that deletes them from any already-seeded database)
             $this->b('First Unlock', 'spending', 'bronze', 'cumulative_spend', 1),
-            $this->b('Supporter', 'spending', 'bronze', 'premium_months_consecutive', 1),
-            $this->b('Loyal Patron', 'spending', 'silver', 'premium_months_consecutive', 3),
-            $this->b('Devoted Patron', 'spending', 'gold', 'premium_months_consecutive', 6, 'bonus_access', ['free_premium_days' => 30]),
-            $this->b('Annual VIP', 'spending', 'gold', 'annual_plan_purchased', 1),
             $this->b('Big Spender', 'spending', 'silver', 'cumulative_spend', 30, 'recommendation'),
-            $this->b("Patron's Circle", 'spending', 'platinum', 'premium_months_consecutive', 12, 'bonus_access', ['free_premium_days' => 30]),
             $this->b('Wide Reader', 'spending', 'silver', 'premium_episodes_unlocked_stories', 10),
 
             // Streak / Engagement
@@ -120,7 +117,6 @@ class BadgeSeeder extends Seeder
         $ep = Str::plural('episode', $value);
         $story = Str::plural('story', $value);
         $day = Str::plural('day', $value);
-        $month = Str::plural('month', $value);
         $category = Str::plural('category', $value);
         $genre = Str::plural('genre', $value);
         $comment = Str::plural('comment', $value);
@@ -138,8 +134,6 @@ class BadgeSeeder extends Seeder
             'genres_explored' => "Read at least one story from {$value} different {$genre}.",
             'author_stories_completed_max' => "Complete {$value} {$story} from the same author.",
             'cumulative_spend' => "Reach {$value} total spent on the platform, across any purchases.",
-            'premium_months_consecutive' => "Stay subscribed for {$value} consecutive {$month}.",
-            'annual_plan_purchased' => 'Purchase an annual subscription plan.',
             'premium_episodes_unlocked_stories' => "Unlock premium episodes in {$value} different {$story}.",
             'early_comments' => "Post {$value} {$comment} within 24 hours of an episode going live.",
             'late_night_reads' => "Read {$value} {$ep} between midnight and 4am.",

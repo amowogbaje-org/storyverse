@@ -25,7 +25,9 @@ class StoryAccessService
      */
     public function accessibleEpisodeLimit(Story $story, ?User $user): ?int
     {
-        if ($user && $user->hasActivePremiumSubscription()) {
+        // Reward-granted access (badges, referral milestones - see
+        // BonusAccessService), independent of any purchase.
+        if ($user && $user->hasBonusPremiumAccess()) {
             return null;
         }
 
@@ -57,18 +59,36 @@ class StoryAccessService
 
     public function canAccessEpisode(Story $story, Episode $episode, ?User $user): bool
     {
-        $limit = $this->accessibleEpisodeLimit($story, $user);
+        return $this->episodeIsWithinLimit($this->accessibleEpisodeLimit($story, $user), $episode);
+    }
 
+    private function episodeIsWithinLimit(?int $limit, Episode $episode): bool
+    {
         return $limit === null || $episode->episode_number <= $limit;
     }
 
     /**
      * Reason code used by the frontend to decide which upsell to show:
-     * 'guest_limit' -> prompt to register, 'premium_required' -> prompt to subscribe.
+     * 'guest_limit' -> prompt to register, 'premium_required' -> prompt to buy the story.
      */
     public function lockReason(Story $story, Episode $episode, ?User $user): ?string
     {
-        if ($this->canAccessEpisode($story, $episode, $user)) {
+        return $this->lockReasonForLimit($this->accessibleEpisodeLimit($story, $user), $episode, $user);
+    }
+
+    /**
+     * Same as lockReason(), but takes an already-computed limit instead of
+     * looking it up itself - use this in any loop over a story's episodes
+     * (see StoryController::show()). accessibleEpisodeLimit() runs several
+     * real queries (a purchase lookup, a prior-reading-history check, none
+     * of them cached), so calling lockReason() once per episode in a list
+     * turns a single page load into N extra query round-trips for an
+     * N-episode story. Compute the limit once, then call this per episode -
+     * episode_number <= $limit is just an integer comparison, no query at all.
+     */
+    public function lockReasonForLimit(?int $limit, Episode $episode, ?User $user): ?string
+    {
+        if ($this->episodeIsWithinLimit($limit, $episode)) {
             return null;
         }
 

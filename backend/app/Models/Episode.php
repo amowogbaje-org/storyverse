@@ -10,12 +10,15 @@ class Episode extends Model
 {
     protected $fillable = [
         'story_id', 'title', 'episode_number', 'content',
+        'raw_content', 'raw_content_updated_at', 'styled_at', 'styling_attempts',
         'word_count', 'status', 'published_at',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'content_synced_at' => 'datetime',
+        'raw_content_updated_at' => 'datetime',
+        'styled_at' => 'datetime',
     ];
 
     public function story(): BelongsTo

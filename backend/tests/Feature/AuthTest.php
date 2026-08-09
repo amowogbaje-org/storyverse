@@ -32,7 +32,7 @@ class AuthTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('data.user.name', 'Ada Lovelace')
             ->assertJsonPath('data.user.display_name', 'Ada Lovelace')
-            ->assertJsonPath('data.user.has_active_premium_subscription', false)
+            ->assertJsonPath('data.user.has_premium_access', false)
             ->assertJsonPath('data.user.country_code', 'GB')
             ->assertJsonPath('data.requires_verification', true)
             ->assertJsonMissingPath('data.token');

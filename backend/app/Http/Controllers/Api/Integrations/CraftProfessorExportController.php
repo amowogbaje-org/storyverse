@@ -35,6 +35,15 @@ use Illuminate\Support\Str;
  *    explicitly expected ("after publishing episode 3"), the backlog clears
  *    itself over however many calls it takes; nothing is ever permanently
  *    excluded from the export.
+ *
+ * 3. Always sends the author's raw, unstyled text (`raw_content`), never the
+ *    AI-styled `content` readers see on the site - CraftProfessor gets its
+ *    own copy to work with and shouldn't inherit this app's inline styling
+ *    markup. Staleness is judged against `raw_content_updated_at` (set only
+ *    on an author edit - see EpisodeManagementController), not `updated_at`,
+ *    since the styling agent also touches `updated_at` every time it writes
+ *    a styled version and that isn't a reason to re-send. Falls back to
+ *    `content`/`updated_at` for any episode saved before this column existed.
  */
 class CraftProfessorExportController
 {
@@ -51,7 +60,11 @@ class CraftProfessorExportController
         $batchSize = (int) config('craftprofessor.content_batch_size');
 
         $needsContent = $episodes
-            ->filter(fn (Episode $e) => $e->content_synced_at === null || $e->updated_at->gt($e->content_synced_at))
+            ->filter(function (Episode $e) {
+                $lastRawEdit = $e->raw_content_updated_at ?? $e->updated_at;
+
+                return $e->content_synced_at === null || $lastRawEdit->gt($e->content_synced_at);
+            })
             ->sortByDesc('episode_number')
             ->take($batchSize);
 
@@ -77,7 +90,7 @@ class CraftProfessorExportController
                 // - StoryVerse doesn't have a real per-episode slug to give it.
                 'slug' => "{$story->slug}-{$e->episode_number}-".Str::slug($e->title),
                 'url' => "{$frontendUrl}/stories/{$story->slug}/episodes/{$e->episode_number}",
-                'content' => in_array($e->id, $includeContentFor, true) ? $e->content : null,
+                'content' => in_array($e->id, $includeContentFor, true) ? ($e->raw_content ?? $e->content) : null,
                 'published_at' => $e->published_at?->toIso8601String(),
             ])->values(),
         ]);

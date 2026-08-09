@@ -34,9 +34,9 @@ interface PaymentGateway
     /**
      * Create a hosted checkout session for a one-off "buy this book" purchase -
      * a single flat charge that unlocks every episode of $story for $user
-     * regardless of subscription status. Amount/currency come from the
-     * story's own purchase_price/purchase_currency (set by its author), not a
-     * Plan record.
+     * regardless of subscription status. Amount/currency come from whichever
+     * of the story's per-currency prices was resolved for this buyer (see
+     * Story::priceFor and StoryPurchaseService), not a Plan record.
      */
     public function createStoryPurchaseCheckoutSession(User $user, Story $story, float $amount, string $currency): CheckoutSession;
 

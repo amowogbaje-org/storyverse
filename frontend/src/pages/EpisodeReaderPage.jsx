@@ -8,6 +8,7 @@ import { useAccessLimits } from "../hooks/queries/usePlatformStatus";
 import { useReadAloud } from "../hooks/useReadAloud";
 import UpsellBanner from "../components/reader/UpsellBanner";
 import ReadAloudBar from "../components/reader/ReadAloudBar";
+import RichText from "../components/reader/RichText";
 import ShareMenu from "../components/story/ShareMenu";
 import Seo from "../components/common/Seo";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -104,7 +105,7 @@ export default function EpisodeReaderPage() {
   if (!canAccessEpisode(story, { episode_number: num }, user, limits)) {
     return (
       <Container className="py-10">
-        <UpsellBanner reason={lockReason(story, { episode_number: num }, user, limits)} />
+        <UpsellBanner reason={lockReason(story, { episode_number: num }, user, limits)} slug={slug} />
       </Container>
     );
   }
@@ -145,11 +146,11 @@ export default function EpisodeReaderPage() {
         hasNext={Boolean(next)}
       />
 
-      <article
-        ref={contentRef}
-        className="prose prose-ink mt-6 max-w-none whitespace-pre-wrap text-[17px] leading-relaxed text-ink-900"
-      >
-        {episode?.content}
+      <article ref={contentRef} className="mt-6">
+        <RichText
+          text={episode?.content}
+          className="font-reading max-w-none text-[18px] leading-[1.75] text-ink-900"
+        />
       </article>
 
       <div className="mt-10 flex items-center justify-between border-t border-ink-950/10 pt-4 text-sm">

@@ -12,7 +12,6 @@ class Story extends Model
     protected $fillable = [
         'pen_name_id', 'title', 'slug', 'description',
         'cover_image_url', 'status', 'access_type', 'is_completed',
-        'purchase_price', 'purchase_currency',
         'episodes_count', 'views_count', 'likes_count', 'bookmarks_count',
         'comments_count', 'shares_count', 'published_at',
     ];
@@ -20,7 +19,6 @@ class Story extends Model
     protected $casts = [
         'is_completed' => 'boolean',
         'published_at' => 'datetime',
-        'purchase_price' => 'decimal:2',
     ];
 
     public function penName(): BelongsTo
@@ -68,8 +66,32 @@ class Story extends Model
         return $this->hasMany(StoryPurchase::class);
     }
 
+    public function prices(): HasMany
+    {
+        return $this->hasMany(StoryPrice::class);
+    }
+
     public function isPurchasable(): bool
     {
-        return $this->purchase_price !== null && $this->purchase_currency !== null;
+        return $this->relationLoaded('prices')
+            ? $this->prices->isNotEmpty()
+            : $this->prices()->exists();
+    }
+
+    /**
+     * The price to actually show/charge a reader, resolved for their
+     * currency - the author's own price in that exact currency if set, else
+     * USD as the most likely "base" price, else whatever price does exist.
+     * Falling all the way through to "whatever exists" (rather than null)
+     * means a reader in a currency the author hasn't priced always sees a
+     * real, purchasable price instead of the buy option just disappearing.
+     */
+    public function priceFor(?string $currency): ?StoryPrice
+    {
+        $prices = $this->relationLoaded('prices') ? $this->prices : $this->prices()->get();
+
+        return $prices->firstWhere('currency', $currency)
+            ?? $prices->firstWhere('currency', 'USD')
+            ?? $prices->first();
     }
 }

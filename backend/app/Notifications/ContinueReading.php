@@ -57,7 +57,7 @@ class ContinueReading extends Notification
             'title' => 'Continue reading 📚',
             'body' => $this->body,
             'url' => "/stories/{$this->story->slug}/episodes/{$this->episode->episode_number}",
-            'icon' => $this->story->cover_image_url,
+            'image' => $this->story->cover_image_url,
         ];
     }
 }

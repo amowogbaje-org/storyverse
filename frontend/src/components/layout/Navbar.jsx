@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useLoginUrl } from "../../hooks/useLoginUrl";
 import Container from "../common/Container";
 import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   const { user, isAuthenticated, loading, logout } = useAuth();
+  const loginHref = useLoginUrl();
   const [menuOpen, setMenuOpen] = useState(false);
   const [q, setQ] = useState("");
   const navigate = useNavigate();
@@ -34,11 +37,12 @@ export default function Navbar() {
             onChange={(e) => setQ(e.target.value)}
             type="search"
             placeholder="Search stories or authors…"
-            className="w-full rounded-full border border-ink-950/15 bg-white/70 px-4 py-1.5 text-sm outline-none placeholder:text-ink-300 focus:border-gold-500"
+            className="w-full rounded-full border border-ink-950/15 bg-white/70 px-4 py-1.5 text-sm outline-none placeholder:text-ink-300 focus:border-gold-500 dark:bg-parchment-100/70"
           />
         </form>
 
         <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          <ThemeToggle />
           {isAuthenticated && !loading && <NotificationBell />}
           <div className="relative">
           {loading ? (
@@ -46,7 +50,7 @@ export default function Navbar() {
           ) : isAuthenticated ? (
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-full border border-ink-950/10 bg-white/60 py-1 pl-1 pr-3"
+              className="flex items-center gap-2 rounded-full border border-ink-950/10 bg-white/60 py-1 pl-1 pr-3 dark:bg-parchment-100/60"
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-teal-700 text-xs font-semibold text-parchment-50">
                 {user?.display_name?.[0]?.toUpperCase() ?? "U"}
@@ -55,7 +59,7 @@ export default function Navbar() {
             </button>
           ) : (
             <Link
-              to="/login"
+              to={loginHref}
               className="rounded-full bg-ink-950 px-4 py-1.5 text-sm font-medium text-parchment-50 hover:bg-ink-900"
             >
               Sign in
@@ -64,7 +68,7 @@ export default function Navbar() {
 
           {menuOpen && isAuthenticated && (
             <div
-              className="absolute right-0 top-11 w-52 overflow-hidden rounded-card border border-ink-950/10 bg-white shadow-card"
+              className="absolute right-0 top-11 w-52 overflow-hidden rounded-card border border-ink-950/10 bg-white shadow-card dark:bg-parchment-100"
               onMouseLeave={() => setMenuOpen(false)}
             >
               <Link to="/library" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>My library</Link>
@@ -73,7 +77,6 @@ export default function Navbar() {
               {["author", "admin"].includes(user?.role) && (
                 <Link to="/admin" className="block px-4 py-2.5 text-sm text-gold-600 hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Studio</Link>
               )}
-              <Link to="/subscription" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Subscription</Link>
               <Link to="/profile" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Settings</Link>
               <Link to="/support" className="block px-4 py-2.5 text-sm hover:bg-parchment-100" onClick={() => setMenuOpen(false)}>Support</Link>
               <button

@@ -51,10 +51,15 @@ class StoryPurchaseController extends Controller
         $story = Story::where('slug', $slug)->firstOrFail();
         $user = $this->requireUser($request);
 
+        // Resolved for this reader's own currency (see Story::priceFor) -
+        // not a single fixed price for everyone, since an author can price a
+        // story differently per currency (see StoryManagementController).
+        $price = $story->isPurchasable() ? $story->priceFor($user->currency) : null;
+
         return $this->ok([
             'purchasable' => $story->isPurchasable(),
-            'price' => $story->purchase_price,
-            'currency' => $story->purchase_currency,
+            'price' => $price?->amount,
+            'currency' => $price?->currency,
             'purchased' => $this->purchases->hasPurchased($user, $story),
         ]);
     }

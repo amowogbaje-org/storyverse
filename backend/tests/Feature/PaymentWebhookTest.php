@@ -4,10 +4,19 @@ namespace Tests\Feature;
 
 use App\Models\Payment;
 use App\Models\SubscriptionPlan;
-use Illuminate\Support\Facades\Http;
 use Tests\Feature\Concerns\CreatesStoryFixtures;
 use Tests\TestCase;
 
+/**
+ * The subscribe-to-a-plan checkout flow itself (/subscriptions/checkout) was
+ * removed along with the rest of the subscription product - stories are
+ * bought individually now (see StoryPurchaseController). What's left here
+ * tests webhook processing (signature verification, activating a
+ * Subscription from a successful charge) - that machinery was deliberately
+ * kept intact for historical/in-flight data even though nothing creates a
+ * new pending Payment via HTTP anymore, so these tests create one directly
+ * instead of going through the removed route.
+ */
 class PaymentWebhookTest extends TestCase
 {
     use CreatesStoryFixtures;
@@ -18,46 +27,6 @@ class PaymentWebhookTest extends TestCase
             'name' => 'Premium', 'country_code' => 'NG', 'currency' => 'NGN',
             'price' => 5000, 'billing_interval' => 'month', 'is_active' => true,
         ]);
-    }
-
-    public function test_checkout_creates_a_pending_payment_and_returns_a_checkout_url(): void
-    {
-        Http::fake([
-            'api.paystack.co/*' => Http::response([
-                'status' => true,
-                'data' => ['authorization_url' => 'https://paystack.test/pay/abc123'],
-            ], 200),
-        ]);
-
-        $reader = $this->createReader();
-        $plan = $this->makePlan();
-
-        $response = $this->postJson('/api/v1/subscriptions/checkout', [
-            'plan_id' => $plan->id,
-            'gateway' => 'paystack',
-        ], $this->bearerFor($reader));
-
-        $response->assertStatus(200)->assertJsonPath('data.checkout_url', 'https://paystack.test/pay/abc123');
-
-        $this->assertDatabaseHas('payments', [
-            'user_id' => $reader->id,
-            'plan_id' => $plan->id,
-            'gateway' => 'paystack',
-            'status' => 'pending',
-        ]);
-    }
-
-    public function test_checkout_returns_502_when_the_gateway_call_fails(): void
-    {
-        Http::fake(['api.paystack.co/*' => Http::response(['message' => 'bad request'], 400)]);
-
-        $reader = $this->createReader();
-        $plan = $this->makePlan();
-
-        $this->postJson('/api/v1/subscriptions/checkout', [
-            'plan_id' => $plan->id,
-            'gateway' => 'paystack',
-        ], $this->bearerFor($reader))->assertStatus(502);
     }
 
     public function test_paystack_webhook_rejects_an_invalid_signature(): void
@@ -82,17 +51,6 @@ class PaymentWebhookTest extends TestCase
         $this->assertEqualsCanonicalizing(['stripe', 'paystack', 'flutterwave'], $registry->names());
         $this->assertTrue($registry->has('stripe'));
         $this->assertFalse($registry->has('dogecoin'));
-    }
-
-    public function test_checkout_rejects_a_gateway_name_the_registry_does_not_know(): void
-    {
-        $reader = $this->createReader();
-        $plan = $this->makePlan();
-
-        $this->postJson('/api/v1/subscriptions/checkout', [
-            'plan_id' => $plan->id,
-            'gateway' => 'dogecoin',
-        ], $this->bearerFor($reader))->assertStatus(422);
     }
 
     public function test_paystack_webhook_activates_a_subscription_on_a_valid_signature(): void

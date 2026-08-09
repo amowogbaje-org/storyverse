@@ -23,7 +23,7 @@ class WebPushService
      * Returning a summary lets PushSubscriptionController::test() explain
      * exactly what's missing instead of just shrugging.
      *
-     * @param array{title:string, body:string, url?:string, icon?:string} $payload
+     * @param array{title:string, body:string, url?:string, icon?:string, image?:string} $payload
      * @return array{sent:int, failed:int, pruned:int, errors:string[]}
      */
     public function sendToUser(User $user, array $payload): array
