@@ -1,6 +1,6 @@
 <?php
 
-use Laravel\Telescope\Http\Middleware\Authorize;
+use App\Http\Middleware\TelescopeAccessKey;
 use Laravel\Telescope\Watchers;
 
 return [
@@ -94,7 +94,13 @@ return [
 
     'middleware' => [
         'web',
-        Authorize::class,
+        // Swapped in place of Telescope's default Authorize middleware - see
+        // App\Http\Middleware\TelescopeAccessKey's docblock for why (no
+        // session-authenticated web-guard user exists in this app; auth is
+        // JWT-only). 'throttle' caps key-guessing attempts against the
+        // access key below.
+        'throttle:20,1',
+        TelescopeAccessKey::class,
     ],
 
     /*

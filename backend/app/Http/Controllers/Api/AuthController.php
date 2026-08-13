@@ -31,20 +31,30 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'accept_terms' => ['accepted'],
-            'country_code' => ['nullable', 'string', 'size:2'],
-            'browser_locale' => ['nullable', 'string'],
-            'referral_code' => ['nullable', 'string', 'max:12'],
-        ], [
-            'password.confirmed' => 'Password and confirmation do not match.',
-            'accept_terms.accepted' => 'You must agree to the Terms of Service and Privacy Policy.',
-        ]);
+        try {
+            $data = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'accept_terms' => ['accepted'],
+                'country_code' => ['nullable', 'string', 'size:2'],
+                'browser_locale' => ['nullable', 'string'],
+                'referral_code' => ['nullable', 'string', 'max:12'],
+            ], [
+                'password.confirmed' => 'Password and confirmation do not match.',
+                'accept_terms.accepted' => 'You must agree to the Terms of Service and Privacy Policy.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->logSignupAttempt('native', $request->input('email'), 'failed', 'validation_failed', null, $request, [
+                'fields' => array_keys($e->errors()),
+            ]);
+
+            throw $e;
+        }
 
         if (BlacklistedEmail::isBlacklisted($data['email'])) {
+            $this->logSignupAttempt('native', $data['email'], 'failed', 'email_blacklisted', null, $request);
+
             return $this->error('invalid_email', 'We were unable to deliver mail to this email address before. Please use a different email address.', 422);
         }
 
@@ -54,6 +64,8 @@ class AuthController extends Controller
             if ($existing->email_verified_at) {
                 // Real, verified account already owns this email - this is the normal
                 // "you already have an account" case, not the silent/ambiguous one.
+                $this->logSignupAttempt('native', $data['email'], 'failed', 'email_taken_verified', $existing->id, $request);
+
                 return $this->error('email_taken', 'An account with this email already exists. Try signing in instead.', 422);
             }
 
@@ -61,6 +73,8 @@ class AuthController extends Controller
             // and don't fail ambiguously - say plainly what happened and get them a
             // fresh code (subject to the normal 1-minute resend limit).
             $otp = $this->issueOtp($existing->email, 'verify');
+
+            $this->logSignupAttempt('native', $data['email'], 'pending', 'unverified_resend', $existing->id, $request);
 
             return $this->ok([
                 'user' => $this->userPayload($existing),
@@ -102,6 +116,8 @@ class AuthController extends Controller
         // Account exists but stays unverified/token-less until the OTP we just sent
         // is confirmed via /auth/otp/verify - see verifyOtp() below.
         $otp = $this->issueOtp($user->email, 'verify');
+
+        $this->logSignupAttempt('native', $user->email, 'succeeded', 'otp_sent', $user->id, $request);
 
         return $this->ok([
             'user' => $this->userPayload($user),
@@ -269,6 +285,8 @@ class AuthController extends Controller
         $hashed = cache()->get($key);
 
         if (! $hashed || ! Hash::check($data['code'], $hashed)) {
+            $this->logSignupAttempt('otp', $identifier, 'failed', 'invalid_otp', null, $request);
+
             return $this->error('invalid_otp', 'That code is invalid or expired.', 422);
         }
 
@@ -285,6 +303,12 @@ class AuthController extends Controller
 
         if ($user->wasRecentlyCreated) {
             $this->referrals->attribute($user, $data['referral_code'] ?? null);
+
+            // Only the true passwordless-signup path (no prior register() call
+            // created this row) counts as an 'otp' channel signup - OTP
+            // verification of a register()-initiated account is handled by the
+            // 'native' logging in register() above, not here.
+            $this->logSignupAttempt('otp', $identifier, 'succeeded', 'new_account', $user->id, $request);
         }
 
         $wasUnverified = ! $user->email_verified_at;
@@ -326,6 +350,10 @@ class AuthController extends Controller
         $payload = $this->verifyGoogleIdToken($data['credential']);
 
         if (! $payload) {
+            // No usable email at this point - the token itself didn't verify,
+            // so there's nothing reliable to log as the identifier.
+            $this->logSignupAttempt('google', null, 'failed', 'invalid_google_token', null, $request);
+
             return $this->error('invalid_google_token', 'We could not verify that Google sign-in. Please try again.', 422);
         }
 
@@ -344,6 +372,8 @@ class AuthController extends Controller
                 'email_verified_at' => $user->email_verified_at ?? now(),
                 'avatar_url' => $user->avatar_url ?: ($payload['picture'] ?? null),
             ]);
+
+            $this->logSignupAttempt('google', $payload['email'], 'succeeded', 'existing_account_linked', $user->id, $request);
         } else {
             $geo = $this->geo->detect($request);
 
@@ -372,9 +402,47 @@ class AuthController extends Controller
                 'created_at' => now(),
             ]);
             \App\Events\UserActivityLogged::dispatch($user->id, 'user_registered', ['country_code' => $geo['country_code'], 'via' => 'google']);
+
+            $this->logSignupAttempt('google', $user->email, 'succeeded', 'new_account', $user->id, $request);
         }
 
         return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+    }
+
+    /**
+     * Records one row per signup attempt - success, failure, or pending -
+     * across all three entry points (native email/password, Google, OTP).
+     * The point is drop-off visibility: which step people are actually
+     * failing at (bad password, blacklisted email, an expired code, a
+     * Google token that didn't verify), not just how many succeed.
+     *
+     * Deliberately swallows its own failures rather than letting a logging
+     * bug ever break signup/login itself.
+     */
+    private function logSignupAttempt(
+        string $channel,
+        ?string $identifier,
+        string $status,
+        ?string $reason,
+        ?int $userId,
+        Request $request,
+        array $metadata = [],
+    ): void {
+        try {
+            \App\Models\SignupAttempt::create([
+                'channel' => $channel,
+                'identifier' => $identifier,
+                'status' => $status,
+                'reason' => $reason,
+                'user_id' => $userId,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'metadata' => $metadata,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to log signup attempt', ['error' => $e->getMessage(), 'channel' => $channel]);
+        }
     }
 
     /**
