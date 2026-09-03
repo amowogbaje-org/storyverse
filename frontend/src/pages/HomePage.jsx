@@ -1,11 +1,7 @@
-import { useState } from "react";
 import {
   useNewReleases,
   usePopularStories,
-  useTrendingRanked,
-  useContinueReading,
 } from "../hooks/queries/useStories";
-import { useGenres } from "../hooks/queries/useGenres";
 import StoryCard from "../components/story/StoryCard";
 import SectionHeader from "../components/common/SectionHeader";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -26,7 +22,8 @@ function StoryRow({ stories }) {
   );
 }
 
-// Rank matters here — this is an actual leaderboard, not decorative numbering.
+// Rank matters here — this is derived from the same "popular" data,
+// just displayed as a leaderboard for the top few instead of a grid.
 function RankedRow({ stories }) {
   return (
     <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-4 sm:overflow-visible sm:px-0 lg:grid-cols-3">
@@ -56,32 +53,13 @@ function RankedRow({ stories }) {
   );
 }
 
-function GenreRail({ genres }) {
-  if (!genres?.length) return null;
-  return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
-      {genres.map((g) => (
-        <Link
-          key={g.id}
-          to={`/browse?genre=${g.slug}`}
-          className="shrink-0 rounded-full border border-ink-700 px-4 py-1.5 text-sm text-ink-200 transition-colors hover:border-gold-400 hover:text-gold-400"
-        >
-          {g.name}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 export default function HomePage() {
   const { data: newData, isLoading: newLoading } = useNewReleases();
   const { data: popularData, isLoading: popularLoading } = usePopularStories();
-  const { data: rankedData, isLoading: rankedLoading } = useTrendingRanked({ limit: 6 });
-  const { data: genresData } = useGenres();
-  const { data: continueData, isLoading: continueLoading } = useContinueReading();
 
   const featured = popularData?.data?.[0] ?? newData?.data?.[0];
-  const hasContinue = !continueLoading && (continueData?.data?.length ?? 0) > 0;
+  const topRanked = (popularData?.data ?? []).slice(0, 6);
+  const restPopular = (popularData?.data ?? []).slice(6);
 
   return (
     <Container className="py-6">
@@ -117,19 +95,8 @@ export default function HomePage() {
       </section>
 
       <section className="mb-10">
-        <GenreRail genres={genresData?.data} />
-      </section>
-
-      {hasContinue && (
-        <section className="mb-10">
-          <SectionHeader title="Pick up where you left off" viewAllHref="/library" />
-          <StoryRow stories={continueData.data} />
-        </section>
-      )}
-
-      <section className="mb-10">
-        <SectionHeader title="Trending now" viewAllHref="/browse?sort=trending" />
-        {rankedLoading ? <LoadingSpinner /> : <RankedRow stories={rankedData?.data ?? []} />}
+        <SectionHeader title="Trending now" viewAllHref="/browse?sort=popular" />
+        {popularLoading ? <LoadingSpinner /> : <RankedRow stories={topRanked} />}
       </section>
 
       <section className="mb-10">
@@ -137,10 +104,12 @@ export default function HomePage() {
         {newLoading ? <LoadingSpinner /> : <StoryRow stories={newData?.data ?? []} />}
       </section>
 
-      <section className="mb-10">
-        <SectionHeader title="Popular right now" viewAllHref="/browse?sort=popular" />
-        {popularLoading ? <LoadingSpinner /> : <StoryRow stories={popularData?.data ?? []} />}
-      </section>
+      {restPopular.length > 0 && (
+        <section className="mb-10">
+          <SectionHeader title="More popular picks" viewAllHref="/browse?sort=popular" />
+          {popularLoading ? <LoadingSpinner /> : <StoryRow stories={restPopular} />}
+        </section>
+      )}
 
       {/* Writer CTA — a second beat, distinct from the hero, aimed at the other audience */}
       <section className="mb-4 rounded-card border border-ink-800 px-6 py-8 text-center sm:px-10">
