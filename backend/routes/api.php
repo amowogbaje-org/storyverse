@@ -97,10 +97,21 @@ Route::prefix('v1')->group(function () {
     // but guests must still get a 200, never a 401)
     Route::middleware('jwt.optional')->group(function () {
         Route::get('/categories', function () {
-            return response()->json(['data' => \App\Models\Category::all()]);
+            // Only categories actually used by a published story - an empty
+            // or single-story category isn't worth a filter chip and just
+            // clutters the picker.
+            return response()->json([
+                'data' => \App\Models\Category::whereHas('stories', function ($q) {
+                    $q->where('status', 'published');
+                })->get(),
+            ]);
         });
         Route::get('/genres', function () {
-            return response()->json(['data' => \App\Models\Genre::all()]);
+            return response()->json([
+                'data' => \App\Models\Genre::whereHas('stories', function ($q) {
+                    $q->where('status', 'published');
+                })->get(),
+            ]);
         });
 
         Route::get('/stories', [StoryController::class, 'index']);

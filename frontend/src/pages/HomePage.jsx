@@ -122,8 +122,10 @@ export default function HomePage() {
         {popularLoading ? <LoadingSpinner /> : <StoryRow stories={popularStories} />}
       </section>
 
-      {/* Genres */}
-      {genres.length > 0 && (
+      {/* Genres — hidden entirely unless there's more than one genre actually
+          in use across published stories (a single-option filter isn't a
+          real choice, and the backend already excludes unused genres). */}
+      {genres.length > 1 && (
         <section className="mb-10">
           <SectionHeader title="Find your next obsession" />
           <div className="flex flex-wrap gap-2">
