@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useLoginUrl } from "../../hooks/useLoginUrl";
 
-export default function UpsellBanner({ reason, slug }) {
+export default function UpsellBanner({ reason, slug, episodeNumber }) {
   const loginHref = useLoginUrl();
 
   if (!reason) return null;
@@ -11,14 +11,21 @@ export default function UpsellBanner({ reason, slug }) {
       ? {
           title: "Create a free account to keep reading",
           body: "You've reached the free preview limit. Registered readers get more episodes on every story.",
-          cta: "Sign in or register",
+          cta: "Continue with a free account",
           to: loginHref,
+          // Reassure the reader they land back on the exact episode they
+          // clicked, not a homepage/browse dead end - that's the detail that
+          // turns "sign up" from a wall into a one-step continuation.
+          reassurance: episodeNumber
+            ? `We'll bring you straight back to Episode ${episodeNumber} after you sign up.`
+            : "We'll bring you straight back here after you sign up.",
         }
       : {
           title: "This episode is for readers who own this book",
           body: "Buy this story to unlock every episode, priced for where you live.",
           cta: "Buy this book",
           to: `/stories/${slug}`,
+          reassurance: null,
         };
 
   return (
@@ -31,6 +38,9 @@ export default function UpsellBanner({ reason, slug }) {
       >
         {copy.cta}
       </Link>
+      {copy.reassurance && (
+        <p className="mt-3 text-xs text-ink-500">{copy.reassurance}</p>
+      )}
     </div>
   );
 }

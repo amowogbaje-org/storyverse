@@ -11,7 +11,13 @@ import Container from "../components/common/Container";
 export default function BrowsePage() {
   const [params] = useSearchParams();
   const [view, setView] = useState("grid");
-  const [filters, setFilters] = useState({ sort: params.get("sort") ?? undefined });
+  const [filters, setFilters] = useState({
+    sort: params.get("sort") ?? undefined,
+    // Homepage genre chips and other deep links land here as ?genre=/?category=,
+    // so pick those up on initial load the same way "sort" already was.
+    genre: params.get("genre") ?? undefined,
+    category: params.get("category") ?? undefined,
+  });
 
   const { data, isLoading } = useStories(filters);
   const stories = data?.data ?? [];

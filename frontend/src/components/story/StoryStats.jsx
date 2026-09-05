@@ -6,13 +6,22 @@ const ICONS = {
   shares: "M18 5a3 3 0 1 0-2.83-4H15a3 3 0 0 0 .09.73L8.09 5.51a3 3 0 1 0 0 4.98l7 3.78a3 3 0 1 0 .99-1.76l-7-3.78a3 3 0 0 0 0-1.46l7-3.78c.28.16.58.27.9.33L15.17 4A3 3 0 0 0 18 5Z",
 };
 
-function Stat({ icon, value, label }) {
+// A raw "0" next to an icon reads as "nobody's here yet" and quietly works
+// against new/low-traffic stories. So each stat that supports an action
+// (like, save, discuss) falls back to a plain call-to-action label instead of
+// a zero count once it has no count to show - it becomes an invitation
+// instead of a confession. Stats with no natural CTA (reads, shares) just
+// hide entirely at zero rather than show a hollow number.
+function Stat({ icon, value, label, zeroLabel }) {
+  const hasCount = value > 0;
+  if (!hasCount && !zeroLabel) return null;
+
   return (
     <span className="inline-flex items-center gap-1 text-ink-500" title={label}>
       <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d={ICONS[icon]} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="stat-num">{formatCount(value)}</span>
+      <span className="stat-num">{hasCount ? formatCount(value) : zeroLabel}</span>
     </span>
   );
 }
@@ -27,9 +36,9 @@ export default function StoryStats({ story, className = "" }) {
   return (
     <div className={`flex flex-wrap items-center gap-3 ${className}`}>
       <Stat icon="views" value={story.views_count} label="Reads" />
-      <Stat icon="likes" value={story.likes_count} label="Likes" />
-      <Stat icon="bookmarks" value={story.bookmarks_count} label="Bookmarks" />
-      <Stat icon="comments" value={story.comments_count} label="Comments" />
+      <Stat icon="likes" value={story.likes_count} label="Likes" zeroLabel="Like" />
+      <Stat icon="bookmarks" value={story.bookmarks_count} label="Bookmarks" zeroLabel="Save" />
+      <Stat icon="comments" value={story.comments_count} label="Comments" zeroLabel="Discuss" />
       <Stat icon="shares" value={story.shares_count} label="Shares" />
     </div>
   );

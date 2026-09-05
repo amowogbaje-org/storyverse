@@ -105,7 +105,11 @@ export default function EpisodeReaderPage() {
   if (!canAccessEpisode(story, { episode_number: num }, user, limits)) {
     return (
       <Container className="py-10">
-        <UpsellBanner reason={lockReason(story, { episode_number: num }, user, limits)} slug={slug} />
+        <UpsellBanner
+          reason={lockReason(story, { episode_number: num }, user, limits)}
+          slug={slug}
+          episodeNumber={num}
+        />
       </Container>
     );
   }
