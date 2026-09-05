@@ -4,7 +4,10 @@ import { useAuth } from "../../context/AuthContext";
 import { useLoginUrl } from "../../hooks/useLoginUrl";
 import Container from "../common/Container";
 import NotificationBell from "./NotificationBell";
-import ThemeToggle from "./ThemeToggle";
+// Dark theme is disabled site-wide (see ThemeContext.jsx's DARK_THEME_ENABLED
+// flag). ThemeToggle is left in place but unused here so re-enabling it later
+// is a one-line import + JSX change.
+// import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   const { user, isAuthenticated, loading, logout } = useAuth();
@@ -42,7 +45,6 @@ export default function Navbar() {
         </form>
 
         <div className="ml-auto flex items-center gap-2 sm:ml-0">
-          <ThemeToggle />
           {isAuthenticated && !loading && <NotificationBell />}
           <div className="relative">
           {loading ? (

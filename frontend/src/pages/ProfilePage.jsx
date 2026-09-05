@@ -7,7 +7,10 @@ import Seo from "../components/common/Seo";
 import { isPushSupported, getPushSupportStatus, subscribeToPush, unsubscribeFromPush, getCurrentPushSubscription } from "../utils/push";
 import PayoutAccountSettings from "../components/settings/PayoutAccountSettings";
 import PasswordSettings from "../components/settings/PasswordSettings";
-import ThemeSettings from "../components/settings/ThemeSettings";
+// Dark theme is disabled site-wide (see ThemeContext.jsx's DARK_THEME_ENABLED
+// flag), so the appearance setting is hidden. Component kept for an easy
+// re-enable later.
+// import ThemeSettings from "../components/settings/ThemeSettings";
 import { useCurrencies } from "../hooks/queries/useCurrencies";
 
 const PUSH_UNSUPPORTED_REASONS = {
@@ -205,7 +208,6 @@ export default function ProfilePage() {
         </button>
       </form>
 
-      <ThemeSettings />
       <PasswordSettings />
 
       <Link

@@ -12,6 +12,6 @@ return [
     // Registered readers get more, but only up to registered_premium_episode_limit
     // episodes of a premium story before being asked to subscribe - enough
     // to get genuinely hooked before hitting the paywall.
-    'guest_episode_limit' => env('GUEST_EPISODE_LIMIT', 2),
-    'registered_premium_episode_limit' => env('REGISTERED_PREMIUM_EPISODE_LIMIT', 14),
+    'guest_episode_limit' => env('GUEST_EPISODE_LIMIT', 1),
+    'registered_premium_episode_limit' => env('REGISTERED_PREMIUM_EPISODE_LIMIT', 5),
 ];
