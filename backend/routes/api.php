@@ -32,6 +32,10 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword']);
     Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
     Route::post('/auth/google', [AuthController::class, 'googleAuth']);
+    // Deliberately public/unauthenticated: the whole point of this endpoint is
+    // to get a new access token once the old one has already expired, so it
+    // can't require a valid access token to call.
+    Route::post('/auth/refresh', [AuthController::class, 'refresh']);
 
     // Public - the same list StoryManagementController validates story prices
     // against and StoryPurchaseController resolves reader prices from (see

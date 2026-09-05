@@ -9,6 +9,7 @@ use App\Notifications\OtpCodeNotification;
 use App\Notifications\WelcomeNotification;
 use App\Services\GeoDetectionService;
 use App\Services\JwtService;
+use App\Services\RefreshTokenService;
 use App\Services\ReferralService;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
@@ -25,9 +26,27 @@ class AuthController extends Controller
 {
     public function __construct(
         private JwtService $jwt,
+        private RefreshTokenService $refreshTokens,
         private GeoDetectionService $geo,
         private ReferralService $referrals,
     ) {}
+
+    /**
+     * Every login-succeeding endpoint (login, resetPassword, verifyOtp,
+     * googleAuth, refresh) hands back this same shape: a short-lived access
+     * token plus a fresh long-lived refresh token. Centralized so all of
+     * them stay in sync rather than four separate call sites drifting.
+     */
+    private function issueTokens(User $user): array
+    {
+        $refresh = $this->refreshTokens->issue($user);
+
+        return [
+            'token' => $this->jwt->issue($user),
+            'refresh_token' => $refresh['token'],
+            'refresh_token_expires_at' => $refresh['expires_at']->toIso8601String(),
+        ];
+    }
 
     public function register(Request $request)
     {
@@ -160,7 +179,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+        return $this->ok(['user' => $this->userPayload($user), ...$this->issueTokens($user)]);
     }
 
     /**
@@ -222,7 +241,7 @@ class AuthController extends Controller
 
         $user->update(['password' => Hash::make($data['password'])]);
 
-        return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+        return $this->ok(['user' => $this->userPayload($user), ...$this->issueTokens($user)]);
     }
 
     public function requestOtp(Request $request)
@@ -329,7 +348,7 @@ class AuthController extends Controller
 
         return $this->ok([
             'user' => $this->userPayload($user),
-            'token' => $this->jwt->issue($user),
+            ...$this->issueTokens($user),
             'newly_verified' => $wasUnverified,
         ]);
     }
@@ -374,6 +393,7 @@ class AuthController extends Controller
             ]);
 
             $this->logSignupAttempt('google', $payload['email'], 'succeeded', 'existing_account_linked', $user->id, $request);
+            $isNewUser = false;
         } else {
             $geo = $this->geo->detect($request);
 
@@ -404,9 +424,18 @@ class AuthController extends Controller
             \App\Events\UserActivityLogged::dispatch($user->id, 'user_registered', ['country_code' => $geo['country_code'], 'via' => 'google']);
 
             $this->logSignupAttempt('google', $user->email, 'succeeded', 'new_account', $user->id, $request);
+            $isNewUser = true;
         }
 
-        return $this->ok(['user' => $this->userPayload($user), 'token' => $this->jwt->issue($user)]);
+        return $this->ok([
+            'user' => $this->userPayload($user),
+            ...$this->issueTokens($user),
+            // Mirrors 'newly_verified' on the OTP-verify response - lets the
+            // frontend show the one-time welcome banner only the first time
+            // this Google account actually creates a Storyverse account,
+            // not on every subsequent Google sign-in.
+            'newly_registered' => $isNewUser,
+        ]);
     }
 
     /**
@@ -742,9 +771,44 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        // Stateless JWT: nothing to invalidate server-side without a blacklist store.
-        // Client just discards the token. Add a Redis-backed blacklist here later if needed.
+        // Revoke the refresh token this device was holding, if it sent one -
+        // without this, "logging out" only ever discarded the client's copy;
+        // the token itself stayed valid and could still mint fresh access
+        // tokens for another 30 days for anyone who'd captured it.
+        $refreshToken = $request->input('refresh_token');
+        if ($refreshToken) {
+            $this->refreshTokens->revoke($refreshToken);
+        }
+
         return $this->ok(['message' => 'Logged out.']);
+    }
+
+    /**
+     * Trades a still-valid refresh token for a brand new access token (and,
+     * via rotation, a brand new refresh token too - see
+     * RefreshTokenService::rotate). This is what the frontend calls in the
+     * background whenever an API request comes back 401 because the short-
+     * lived access token has expired, so the reader stays signed in without
+     * ever seeing a login screen.
+     */
+    public function refresh(Request $request)
+    {
+        $data = $request->validate([
+            'refresh_token' => ['required', 'string'],
+        ]);
+
+        $result = $this->refreshTokens->rotate($data['refresh_token']);
+
+        if (! $result) {
+            return $this->error('invalid_refresh_token', 'Your session has expired. Please sign in again.', 401);
+        }
+
+        return $this->ok([
+            'user' => $this->userPayload($result['user']),
+            'token' => $this->jwt->issue($result['user']),
+            'refresh_token' => $result['token'],
+            'refresh_token_expires_at' => $result['expires_at']->toIso8601String(),
+        ]);
     }
 
     /**

@@ -1,8 +1,18 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api, { getToken, setToken, registerUnauthorizedHandler } from "../api/client";
+import api, { getToken, setToken, getRefreshToken, setRefreshToken, clearSession, registerUnauthorizedHandler } from "../api/client";
 import { getStoredReferralCode, clearStoredReferralCode } from "../hooks/useReferralCapture";
 
 const AuthContext = createContext(null);
+
+// Every endpoint that signs someone in now returns both an access token
+// ("token") and a refresh token ("refresh_token") - see AuthController's
+// issueTokens(). Centralized here so all four call sites below persist both
+// the same way rather than repeating the data.data-vs-data fallback dance.
+function persistTokens(data) {
+  const payload = data.data ?? data;
+  setToken(payload.token);
+  if (payload.refresh_token) setRefreshToken(payload.refresh_token);
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,8 +52,7 @@ export function AuthProvider({ children }) {
   // re-render. That was the source of the Google sign-in "hiccups".
   const login = useCallback(async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
-    const token = data.data?.token ?? data.token;
-    setToken(token);
+    persistTokens(data);
     await fetchMe();
     return data;
   }, [fetchMe]);
@@ -62,9 +71,8 @@ export function AuthProvider({ children }) {
 
   const verifyOtp = useCallback(async ({ email, code }) => {
     const { data } = await api.post("/auth/otp/verify", { email, code, referral_code: getStoredReferralCode() });
-    const token = data.data?.token ?? data.token;
-    if (token) {
-      setToken(token);
+    if (data.data?.token ?? data.token) {
+      persistTokens(data);
       await fetchMe();
       clearStoredReferralCode();
     }
@@ -83,9 +91,8 @@ export function AuthProvider({ children }) {
 
   const resetPassword = useCallback(async ({ email, code, password, password_confirmation }) => {
     const { data } = await api.post("/auth/password/reset", { email, code, password, password_confirmation });
-    const token = data.data?.token ?? data.token;
-    if (token) {
-      setToken(token);
+    if (data.data?.token ?? data.token) {
+      persistTokens(data);
       await fetchMe();
     }
     return data;
@@ -93,8 +100,7 @@ export function AuthProvider({ children }) {
 
   const loginWithGoogle = useCallback(async (credential) => {
     const { data } = await api.post("/auth/google", { credential, referral_code: getStoredReferralCode() });
-    const token = data.data?.token ?? data.token;
-    setToken(token);
+    persistTokens(data);
     await fetchMe();
     clearStoredReferralCode();
     return data;
@@ -102,11 +108,11 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post("/auth/logout");
+      await api.post("/auth/logout", { refresh_token: getRefreshToken() });
     } catch {
       // ignore — we clear client state regardless
     }
-    setToken(null);
+    clearSession();
     setUser(null);
   }, []);
 
