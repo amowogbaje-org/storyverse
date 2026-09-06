@@ -79,23 +79,27 @@ export default function HomePage() {
       <WelcomeBanner />
       <NextBadges variant="compact" limit={1} />
 
-      {/* Hero — real product photography (a reader actually using
-          Storyverse) instead of a story cover, which read as too dark/busy
-          for this spot. Text sits on a solid parchment panel that fades
-          into the photo on the right, matching the "Light & Clean"
-          reference layout. */}
-      <section className="relative mb-10 overflow-hidden rounded-card bg-parchment-100">
+      {/* Hero — real product photography, now with a dark gradient overlay
+          so the copy can sit in solid white/parchment instead of dark ink
+          text competing against the photo's own colors underneath it. */}
+      <section className="relative mb-10 overflow-hidden rounded-card bg-ink-950">
         <div
-          className="absolute inset-y-0 right-0 w-2/3 bg-cover bg-[position:70%_25%] opacity-95 [mask-image:linear-gradient(to_right,transparent,black_35%)]"
+          className="absolute inset-0 bg-cover bg-[position:70%_25%]"
           style={{ backgroundImage: "url(/images/hero-woman.jpg)" }}
           aria-hidden="true"
         />
+        {/* Darkest behind the text (left), lighter toward the photo's own
+            right side, so her face stays visible while the copy stays readable. */}
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/20"
+          aria-hidden="true"
+        />
         <div className="relative px-6 py-10 sm:px-10 sm:py-14">
-          <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Serialized fiction, one episode at a time</p>
-          <h1 className="mt-3 max-w-md font-display text-3xl font-semibold text-ink-950 sm:text-4xl">
+          <p className="font-mono text-xs uppercase tracking-widest text-gold-400">Serialized fiction, one episode at a time</p>
+          <h1 className="mt-3 max-w-md font-display text-3xl font-semibold text-white sm:text-4xl">
             Your next favorite story is here.
           </h1>
-          <p className="mt-3 max-w-sm text-sm text-ink-700 sm:text-base">
+          <p className="mt-3 max-w-sm text-sm text-parchment-100/90 sm:text-base">
             Read original stories, one episode at a time. Follow your favorites and never lose your place.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -106,7 +110,7 @@ export default function HomePage() {
               Start Reading Free →
             </Link>
           </div>
-          <p className="mt-4 flex items-center gap-1.5 text-xs text-ink-500">
+          <p className="mt-4 flex items-center gap-1.5 text-xs text-parchment-100/70">
             <span aria-hidden="true">ⓘ</span> No account needed for the first episodes free.
           </p>
         </div>
