@@ -69,10 +69,7 @@ export default function HomePage() {
   const genres = genresData?.data ?? [];
   // No dedicated "featured story" endpoint exists yet, so the top trending
   // story stands in as the featured pick - it's already the platform's best
-  // signal of "people are reading this right now". Its cover also doubles
-  // as the hero/closing-CTA background photo below, so the whole page reads
-  // as one photographic through-line instead of needing a separate hero
-  // image asset.
+  // signal of "people are reading this right now".
   const featured = popularStories[0];
 
 
@@ -82,19 +79,17 @@ export default function HomePage() {
       <WelcomeBanner />
       <NextBadges variant="compact" limit={1} />
 
-      {/* Hero — photographic, using the featured story's own cover art so the
-          page doesn't need a separate stock hero image. Text sits on a solid
-          parchment panel that fades into the photo, matching the reference
-          "Light & Clean" layout (cream panel + bleeding photo, not a full
-          dark overlay). */}
+      {/* Hero — real product photography (a reader actually using
+          Storyverse) instead of a story cover, which read as too dark/busy
+          for this spot. Text sits on a solid parchment panel that fades
+          into the photo on the right, matching the "Light & Clean"
+          reference layout. */}
       <section className="relative mb-10 overflow-hidden rounded-card bg-parchment-100">
-        {featured?.cover_image_url && (
-          <div
-            className="absolute inset-y-0 right-0 w-2/3 bg-cover bg-top opacity-90 [mask-image:linear-gradient(to_right,transparent,black_35%)]"
-            style={{ backgroundImage: `url(${featured.cover_image_url})` }}
-            aria-hidden="true"
-          />
-        )}
+        <div
+          className="absolute inset-y-0 right-0 w-2/3 bg-cover bg-[position:70%_25%] opacity-95 [mask-image:linear-gradient(to_right,transparent,black_35%)]"
+          style={{ backgroundImage: "url(/images/hero-woman.jpg)" }}
+          aria-hidden="true"
+        />
         <div className="relative px-6 py-10 sm:px-10 sm:py-14">
           <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Serialized fiction, one episode at a time</p>
           <h1 className="mt-3 max-w-md font-display text-3xl font-semibold text-ink-950 sm:text-4xl">
@@ -247,17 +242,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Final CTA — same photographic treatment as the hero, reusing the
-          featured story's cover for visual continuity through the page. */}
-      <section className="relative mb-4 overflow-hidden rounded-card bg-ink-950 px-6 py-10 text-center text-parchment-50">
-        {featured?.cover_image_url && (
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-40"
-            style={{ backgroundImage: `url(${featured.cover_image_url})` }}
-            aria-hidden="true"
-          />
-        )}
-        <div className="relative">
+      {/* Final CTA — mirrors the hero's photo-bleed treatment (dark panel
+          here instead of cream, photo bleeding from the left instead of the
+          right) so the page opens and closes on the same real-photography
+          language rather than a flat color block or a story cover. */}
+      <section className="relative mb-4 overflow-hidden rounded-card bg-ink-950 text-parchment-50">
+        <div
+          className="absolute inset-y-0 left-0 w-2/3 bg-cover bg-[position:50%_20%] opacity-80 [mask-image:linear-gradient(to_left,transparent,black_35%)]"
+          style={{ backgroundImage: "url(/images/cta-man.jpg)" }}
+          aria-hidden="true"
+        />
+        <div className="relative px-6 py-10 text-center sm:px-10 sm:py-14 sm:text-right">
           <h2 className="font-display text-xl font-semibold sm:text-2xl">Your next favorite story is waiting.</h2>
           <p className="mt-2 text-sm text-ink-300">Start reading for free.</p>
           <Link
