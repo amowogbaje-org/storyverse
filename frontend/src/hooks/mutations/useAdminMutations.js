@@ -85,7 +85,41 @@ export function usePublishEpisode(storyId) {
   });
 }
 
-export function useAddToBlacklist() {
+export function usePreviewStoryImport() {
+  return useMutation({
+    mutationFn: async ({ file, pen_name_id }) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("pen_name_id", pen_name_id);
+      return (await api.post("/admin/story-imports/preview", form)).data;
+    },
+  });
+}
+
+export function useConfirmStoryImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post("/admin/story-imports", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "stories"] }),
+  });
+}
+
+/** Downloads the canonical bulk-import template - a blob fetch + object URL rather than a plain <a href>, since the endpoint requires the same bearer-token auth as everything else under /admin. */
+export function useDownloadStoryImportTemplate() {
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.get("/admin/story-imports/template", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "storyverse-bulk-import-template.md";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
+  });
+}
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ email, reason }) => (await api.post("/admin/emails/blacklist", { email, reason })).data,

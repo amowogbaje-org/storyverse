@@ -5,6 +5,7 @@ import Container from "../../components/common/Container";
 const LINKS = [
   { to: "/admin", label: "Dashboard", end: true },
   { to: "/admin/stories", label: "Stories" },
+  { to: "/admin/stories/import", label: "Bulk import" },
   { to: "/admin/pen-names", label: "Pen names" },
   { to: "/admin/earnings", label: "Earnings" },
 ];

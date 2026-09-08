@@ -38,6 +38,7 @@ const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminStoriesPage = lazy(() => import("./pages/admin/AdminStoriesPage"));
+const AdminStoryImportPage = lazy(() => import("./pages/admin/AdminStoryImportPage"));
 const AdminStoryEditorPage = lazy(() => import("./pages/admin/AdminStoryEditorPage"));
 const AdminPenNamesPage = lazy(() => import("./pages/admin/AdminPenNamesPage"));
 const AdminEarningsPage = lazy(() => import("./pages/admin/AdminEarningsPage"));
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
               <Route path="stories" element={<AdminStoriesPage />} />
+              <Route path="stories/import" element={<AdminStoryImportPage />} />
               <Route path="stories/:id" element={<AdminStoryEditorPage />} />
               <Route path="pen-names" element={<AdminPenNamesPage />} />
               <Route path="earnings" element={<AdminEarningsPage />} />

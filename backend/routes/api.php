@@ -190,6 +190,12 @@ Route::prefix('v1')->group(function () {
         Route::delete('/stories/{storyId}/episodes/{episodeId}', [\App\Http\Controllers\Api\Admin\EpisodeManagementController::class, 'destroy']);
 
         Route::post('/uploads/cover-image', [\App\Http\Controllers\Api\Admin\ImageUploadController::class, 'coverImage']);
+
+        // Bulk manuscript import - see StoryImportController for the full
+        // upload -> preview -> confirm flow.
+        Route::get('/story-imports/template', [\App\Http\Controllers\Api\Admin\StoryImportController::class, 'template']);
+        Route::post('/story-imports/preview', [\App\Http\Controllers\Api\Admin\StoryImportController::class, 'preview']);
+        Route::post('/story-imports', [\App\Http\Controllers\Api\Admin\StoryImportController::class, 'import']);
     });
 
     // Webhooks - public, signature-verified inside the resolved PaymentGateway implementation
