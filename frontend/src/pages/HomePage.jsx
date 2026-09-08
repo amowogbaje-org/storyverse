@@ -40,9 +40,9 @@ function accentFor(index) {
 
 const WHY_STORYVERSE = [
   { icon: "📖", title: "Read", body: "Dive into any story from Episode 1, completely free." },
-  { icon: "❤️", title: "Follow", body: "Keep your favorite stories together in one place." },
+  { icon: "🔖", title: "Save", body: "Keep your favorite stories saved in one place." },
   { icon: "🔔", title: "Return", body: "Get notified the moment a story you follow continues." },
-  { icon: "🔖", title: "Save", body: "Your reading progress stays with you, every episode." },
+  { icon: "💬", title: "Discuss", body: "Join the conversation on episodes you love." },
 ];
 
 // Best-effort emoji per genre name for the genre strip below. Falls back to

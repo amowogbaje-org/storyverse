@@ -120,6 +120,8 @@ export function useDownloadStoryImportTemplate() {
     },
   });
 }
+
+export function useAddToBlacklist() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ email, reason }) => (await api.post("/admin/emails/blacklist", { email, reason })).data,
