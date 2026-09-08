@@ -12,16 +12,16 @@ const ICONS = {
 // a zero count once it has no count to show - it becomes an invitation
 // instead of a confession. Stats with no natural CTA (reads, shares) just
 // hide entirely at zero rather than show a hollow number.
-function Stat({ icon, value, label, zeroLabel }) {
+function Stat({ icon, value, label, zeroLabel, tone }) {
   const hasCount = value > 0;
   if (!hasCount && !zeroLabel) return null;
 
   return (
-    <span className="inline-flex items-center gap-1 text-ink-500" title={label}>
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <span className={`inline-flex items-center gap-1 ${tone ?? "text-ink-500"}`} title={label}>
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={tone ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
         <path d={ICONS[icon]} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="stat-num">{hasCount ? formatCount(value) : zeroLabel}</span>
+      <span className="stat-num font-medium">{hasCount ? formatCount(value) : zeroLabel}</span>
     </span>
   );
 }
@@ -32,7 +32,19 @@ export function formatCount(n = 0) {
   return `${n}`;
 }
 
-export default function StoryStats({ story, className = "" }) {
+export default function StoryStats({ story, className = "", variant = "full" }) {
+  if (variant === "compact") {
+    // Cards (grid/list) only ever need the two numbers that actually signal
+    // "people are reading this" - bookmarks/comments/shares belong on the
+    // full story page, not repeated on every thumbnail across the homepage.
+    return (
+      <div className={`flex items-center gap-3 ${className}`}>
+        <Stat icon="views" value={story.views_count} label="Reads" />
+        <Stat icon="likes" value={story.likes_count} label="Likes" zeroLabel="Like" tone="text-ribbon-600" />
+      </div>
+    );
+  }
+
   return (
     <div className={`flex flex-wrap items-center gap-3 ${className}`}>
       <Stat icon="views" value={story.views_count} label="Reads" />

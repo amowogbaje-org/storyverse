@@ -8,16 +8,17 @@ import Container from "../components/common/Container";
 import WelcomeBanner from "../components/common/WelcomeBanner";
 import Seo from "../components/common/Seo";
 import NextBadges from "../components/badges/NextBadges";
+import Swiper from "../components/common/Swiper";
 
 function StoryRow({ stories }) {
   return (
-    <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
+    <Swiper>
       {stories.map((s) => (
-        <div key={s.id} className="w-36 shrink-0 sm:w-auto">
+        <div key={s.id} className="w-36 shrink-0 snap-start sm:w-44">
           <StoryCard story={s} />
         </div>
       ))}
-    </div>
+    </Swiper>
   );
 }
 
@@ -158,14 +159,14 @@ export default function HomePage() {
       {genres.length > 1 && (
         <section className="mb-10">
           <SectionHeader title="Find your next story" subtitle="Explore stories across different genres" />
-          <div className="-mx-4 flex gap-5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+          <Swiper>
             {genres.map((g, i) => {
               const accent = accentFor(i);
               return (
                 <Link
                   key={g.slug}
                   to={`/browse?genre=${encodeURIComponent(g.slug)}`}
-                  className="flex w-16 shrink-0 flex-col items-center gap-2 text-center sm:w-20"
+                  className="flex w-16 shrink-0 snap-start flex-col items-center gap-2 text-center sm:w-20"
                 >
                   <span className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl ${accent.bg}`}>
                     {genreEmoji(g.name)}
@@ -174,7 +175,7 @@ export default function HomePage() {
                 </Link>
               );
             })}
-          </div>
+          </Swiper>
         </section>
       )}
 

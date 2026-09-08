@@ -33,8 +33,7 @@ export default function StoryCard({ story, view = "grid" }) {
             <ProgressCircle percent={progress} size={28} />
           </div>
           <p className="mt-0.5 text-xs text-ink-500">{story.author_display_name}</p>
-          <p className="mt-1 line-clamp-2 text-xs text-ink-500">{story.description}</p>
-          <StoryStats story={story} className="mt-2 text-[11px]" />
+          <StoryStats story={story} variant="compact" className="mt-2 text-[11px]" />
         </div>
       </Link>
     );
@@ -63,8 +62,7 @@ export default function StoryCard({ story, view = "grid" }) {
       <div className="flex flex-1 flex-col gap-1 p-3">
         <h3 className="line-clamp-2 font-display text-sm font-semibold leading-snug text-ink-950">{story.title}</h3>
         <p className="text-xs text-ink-500">{story.author_display_name}</p>
-        <p className="line-clamp-2 text-xs text-ink-500">{story.description}</p>
-        <StoryStats story={story} className="mt-auto pt-2 text-[11px]" />
+        <StoryStats story={story} variant="compact" className="mt-auto pt-2 text-[11px]" />
       </div>
     </Link>
   );
