@@ -58,21 +58,21 @@ jobs:
             --exclude="storage/"
             --exclude="public/storage"
           path: fullstack/
-          remote_path: ${{ secrets.CPANEL_FULLSTACK_PATH }}
-          remote_host: ${{ secrets.CPANEL_HOST }}
-          remote_user: ${{ secrets.CPANEL_USER }}
-          remote_key: ${{ secrets.CPANEL_SSH_KEY }}
-          remote_port: ${{ secrets.CPANEL_SSH_PORT }}
+          remote_path: ${{ vars.FRONTEND_URL }}
+          remote_host: ${{ vars.HOST }}
+          remote_user: ${{ vars.USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_port: ${{ vars.PORT }}
 
       - name: Run migrations and cache config on the server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.CPANEL_HOST }}
-          username: ${{ secrets.CPANEL_USER }}
-          key: ${{ secrets.CPANEL_SSH_KEY }}
-          port: ${{ secrets.CPANEL_SSH_PORT }}
+          host: ${{ vars.HOST }}
+          username: ${{ vars.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.PORT }}
           script: |
-            cd ${{ secrets.CPANEL_FULLSTACK_PATH }}
+            cd ${{ vars.FRONTEND_URL }}
             php artisan migrate --force
             php artisan storage:link || true
             php artisan config:cache
