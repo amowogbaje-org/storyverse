@@ -67,27 +67,28 @@ jobs:
       # --------------------------------------------------
       # Deploy using rsync + SSH
       # --------------------------------------------------
-      - name: Test SSH connection
+      - name: Deploy application
         env:
           HOST: ${{ vars.HOST }}
           USERNAME: ${{ vars.USERNAME }}
           PORT: ${{ vars.PORT }}
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_PATH: ${{ vars.FRONTEND_URL }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
         run: |
-          echo "$SSH_KEY" > /tmp/private_key
+          echo "$SSH_PRIVATE_KEY" > /tmp/private_key
           chmod 600 /tmp/private_key
 
-          echo "Testing SSH connection..."
-          echo "Host: $HOST"
-          echo "User: $USERNAME"
-          echo "Port: $PORT"
+          rsync -avz \
+            -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no -p $PORT" \
+            --exclude='.env' \
+            --exclude='.git' \
+            --exclude='storage/' \
+            --exclude='public/storage' \
+            --delete \
+            fullstack/ \
+            "$USERNAME@$HOST:$REMOTE_PATH"
 
-          ssh -vvv \
-            -i /tmp/private_key \
-            -o StrictHostKeyChecking=no \
-            -p "$PORT" \
-            "$USERNAME@$HOST" \
-            "whoami && hostname && pwd"
       # --------------------------------------------------
       # Run Laravel commands on the production server
       # --------------------------------------------------
@@ -95,7 +96,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.HOST }}
-          username: ${{ vars.USER }}
+          username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.PORT }}
 
