@@ -67,28 +67,27 @@ jobs:
       # --------------------------------------------------
       # Deploy using rsync + SSH
       # --------------------------------------------------
-      - name: Deploy application
+      - name: Test SSH connection
         env:
           HOST: ${{ vars.HOST }}
           USERNAME: ${{ vars.USER }}
           PORT: ${{ vars.PORT }}
-          REMOTE_PATH: ${{ vars.FRONTEND_URL }}
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
         run: |
           echo "$SSH_KEY" > /tmp/private_key
           chmod 600 /tmp/private_key
 
-          rsync -avz \
-            -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no -p $PORT" \
-            --exclude='.env' \
-            --exclude='.git' \
-            --exclude='storage/' \
-            --exclude='public/storage' \
-            --delete \
-            fullstack/ \
-            "$USERNAME@$HOST:$REMOTE_PATH"
+          echo "Testing SSH connection..."
+          echo "Host: $HOST"
+          echo "User: $USERNAME"
+          echo "Port: $PORT"
 
+          ssh -vvv \
+            -i /tmp/private_key \
+            -o StrictHostKeyChecking=no \
+            -p "$PORT" \
+            "$USERNAME@$HOST" \
+            "whoami && hostname && pwd"
       # --------------------------------------------------
       # Run Laravel commands on the production server
       # --------------------------------------------------
