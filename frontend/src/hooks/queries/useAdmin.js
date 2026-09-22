@@ -116,3 +116,12 @@ export function useAdminPayouts(status, enabled) {
     enabled,
   });
 }
+
+// filters: { status?: 'none'|'pending'|'rejected', role?: 'reader'|'author'|'admin', q?: string }
+export function useAdminUsers(filters = {}, enabled) {
+  return useQuery({
+    queryKey: ["admin", "users", filters],
+    queryFn: async () => (await api.get("/admin/users", { params: filters })).data,
+    enabled,
+  });
+}

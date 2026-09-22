@@ -44,6 +44,7 @@ const AdminPenNamesPage = lazy(() => import("./pages/admin/AdminPenNamesPage"));
 const AdminEarningsPage = lazy(() => import("./pages/admin/AdminEarningsPage"));
 const AdminAnalyticsPage = lazy(() => import("./pages/admin/AdminAnalyticsPage"));
 const AdminEmailBlacklistPage = lazy(() => import("./pages/admin/AdminEmailBlacklistPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminPayoutsPage = lazy(() => import("./pages/admin/AdminPayoutsPage"));
 
 export default function App() {
@@ -84,6 +85,7 @@ export default function App() {
               <Route path="analytics" element={<AdminAnalyticsPage />} />
               <Route path="email-blacklist" element={<AdminEmailBlacklistPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

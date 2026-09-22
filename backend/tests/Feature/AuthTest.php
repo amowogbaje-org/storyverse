@@ -153,23 +153,25 @@ class AuthTest extends TestCase
             ->assertJsonPath('data.email', 'me@example.com');
     }
 
-    public function test_a_reader_can_become_an_author(): void
+    public function test_a_reader_can_request_to_become_an_author_but_role_does_not_change_yet(): void
     {
         $user = User::create(['name' => 'Future Author', 'email' => 'future@example.com', 'password' => bcrypt('x'), 'role' => 'reader']);
 
-        $this->postJson('/api/v1/me/become-author', [], $this->bearerFor($user))
+        $this->postJson('/api/v1/me/request-author', [], $this->bearerFor($user))
             ->assertStatus(200)
-            ->assertJsonPath('data.role', 'author');
+            ->assertJsonPath('data.role', 'reader')
+            ->assertJsonPath('data.author_request_status', 'pending');
 
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => 'author']);
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => 'reader', 'author_request_status' => 'pending']);
     }
 
-    public function test_becoming_an_author_is_idempotent_for_admins(): void
+    public function test_requesting_author_access_is_a_no_op_for_admins(): void
     {
         $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('x'), 'role' => 'admin']);
 
-        $this->postJson('/api/v1/me/become-author', [], $this->bearerFor($admin))
+        $this->postJson('/api/v1/me/request-author', [], $this->bearerFor($admin))
             ->assertStatus(200)
-            ->assertJsonPath('data.role', 'admin');
+            ->assertJsonPath('data.role', 'admin')
+            ->assertJsonPath('data.author_request_status', 'none');
     }
 }

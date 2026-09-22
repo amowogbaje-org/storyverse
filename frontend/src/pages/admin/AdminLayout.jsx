@@ -18,7 +18,13 @@ export default function AdminLayout() {
   if (!["author", "admin"].includes(user?.role)) return <Navigate to="/" replace />;
 
   const links = user.role === "admin"
-    ? [...LINKS, { to: "/admin/analytics", label: "Platform analytics" }, { to: "/admin/email-blacklist", label: "Email blacklist" }, { to: "/admin/payouts", label: "Payouts" }]
+    ? [
+        ...LINKS,
+        { to: "/admin/analytics", label: "Platform analytics" },
+        { to: "/admin/email-blacklist", label: "Email blacklist" },
+        { to: "/admin/payouts", label: "Payouts" },
+        { to: "/admin/users", label: "Users" },
+      ]
     : LINKS;
 
   return (

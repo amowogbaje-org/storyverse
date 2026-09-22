@@ -152,3 +152,29 @@ export function useSendPayout() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "payouts"] }),
   });
 }
+
+export function useGrantAuthor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/admin/users/${id}/grant-author`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
+export function useRejectAuthorRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/admin/users/${id}/reject-author-request`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
+/** unpublishStories defaults true on the backend - pass false explicitly to keep the author's stories live after revoking. */
+export function useRevokeAuthor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, unpublishStories }) =>
+      (await api.post(`/admin/users/${id}/revoke-author`, { unpublish_stories: unpublishStories })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}

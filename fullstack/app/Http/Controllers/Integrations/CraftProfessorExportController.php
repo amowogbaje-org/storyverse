@@ -1,0 +1,98 @@
+<?php
+
+namespace App\Http\Controllers\Integrations;
+
+use App\Models\Episode;
+use App\Models\Story;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+/**
+ * Implements the contract documented in storyverse-api-docs.md (supplied by
+ * CraftProfessor, the consumer of this endpoint - we don't control that
+ * contract, only how we satisfy it). Two things worth flagging that aren't
+ * just "implement the doc":
+ *
+ * 1. {slug} is treated as the STORY's slug (StoryVerse's real public URL is
+ *    /stories/{slug} - there's no per-episode slug in this app's routing,
+ *    unlike the doc's own example URL scheme, which assumes one). Episode
+ *    identity for CraftProfessor comes entirely from each episode's `url`
+ *    instead, which the spec already says is fine ("not used programmatically
+ *    ... include it anyway for logs").
+ *
+ * 2. Deliberately does NOT return every episode's full `content` on every
+ *    call, even though the series/episode metadata (number, title, url,
+ *    published_at) is always complete. A series with hundreds of episodes
+ *    would otherwise mean re-encoding hundreds of full episode bodies into
+ *    JSON on every single import/refresh call - real timeout risk, and mostly
+ *    wasted work re-sending text CraftProfessor already has unchanged. The
+ *    spec explicitly allows this: "If omitted or empty, CraftProfessor leaves
+ *    any existing text untouched." So each call sends full content for up to
+ *    self::CONTENT_BATCH_SIZE episodes - whichever most urgently need it
+ *    (never synced, or edited since their last sync), most recent first - and
+ *    metadata-only (content: null) for the rest. Since re-imports are
+ *    explicitly expected ("after publishing episode 3"), the backlog clears
+ *    itself over however many calls it takes; nothing is ever permanently
+ *    excluded from the export.
+ *
+ * 3. Always sends the author's raw, unstyled text (`raw_content`), never the
+ *    AI-styled `content` readers see on the site - CraftProfessor gets its
+ *    own copy to work with and shouldn't inherit this app's inline styling
+ *    markup. Staleness is judged against `raw_content_updated_at` (set only
+ *    on an author edit - see EpisodeManagementController), not `updated_at`,
+ *    since the styling agent also touches `updated_at` every time it writes
+ *    a styled version and that isn't a reason to re-send. Falls back to
+ *    `content`/`updated_at` for any episode saved before this column existed.
+ */
+class CraftProfessorExportController
+{
+    public function show(Request $request, string $slug): JsonResponse
+    {
+        $story = Story::where('slug', $slug)->where('status', 'published')->first();
+
+        if (! $story) {
+            return response()->json(['message' => 'Story not found.'], 404);
+        }
+
+        $episodes = $story->publishedEpisodes()->orderBy('episode_number')->get();
+
+        $batchSize = (int) config('craftprofessor.content_batch_size');
+
+        $needsContent = $episodes
+            ->filter(function (Episode $e) {
+                $lastRawEdit = $e->raw_content_updated_at ?? $e->updated_at;
+
+                return $e->content_synced_at === null || $lastRawEdit->gt($e->content_synced_at);
+            })
+            ->sortByDesc('episode_number')
+            ->take($batchSize);
+
+        if ($needsContent->isNotEmpty()) {
+            Episode::whereIn('id', $needsContent->pluck('id'))->update(['content_synced_at' => now()]);
+        }
+
+        $includeContentFor = $needsContent->pluck('id')->all();
+        $frontendUrl = rtrim(config('app.url'), '/');
+
+        return response()->json([
+            'series' => [
+                'title' => $story->title,
+                'slug' => $story->slug,
+                'description' => $story->description,
+                'cover_image_url' => $story->cover_image_url,
+                'url' => "{$frontendUrl}/stories/{$story->slug}",
+            ],
+            'episodes' => $episodes->map(fn (Episode $e) => [
+                'number' => $e->episode_number,
+                'title' => $e->title,
+                // Cosmetic only (per spec, not used programmatically by CraftProfessor)
+                // - StoryVerse doesn't have a real per-episode slug to give it.
+                'slug' => "{$story->slug}-{$e->episode_number}-".Str::slug($e->title),
+                'url' => "{$frontendUrl}/stories/{$story->slug}/episodes/{$e->episode_number}",
+                'content' => in_array($e->id, $includeContentFor, true) ? ($e->raw_content ?? $e->content) : null,
+                'published_at' => $e->published_at?->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+}

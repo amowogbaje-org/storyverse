@@ -1,0 +1,31 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create("reading_progress", function (Blueprint $table) {
+            $table->engine = 'InnoDB';
+            $table->id();
+            $table->foreignId("user_id")->constrained()->cascadeOnDelete();
+            $table->foreignId("episode_id")->constrained()->cascadeOnDelete();
+            $table->foreignId("story_id")->constrained()->cascadeOnDelete();
+            $table->unsignedTinyInteger("progress_percent")->default(0);
+            $table->timestamp("completed_at")->nullable();
+            $table->timestamp("last_read_at")->useCurrent();
+            $table->timestamps();
+
+            $table->unique(["user_id", "episode_id"]);
+            $table->index(["user_id", "story_id"]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists("reading_progress");
+    }
+};

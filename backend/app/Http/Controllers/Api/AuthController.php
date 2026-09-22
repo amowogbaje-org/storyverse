@@ -817,12 +817,22 @@ class AuthController extends Controller
      * product would probably gate this behind some review step; this is deliberately
      * the simple version.
      */
-    public function becomeAuthor(Request $request)
+    /**
+     * Readers can no longer flip themselves to 'author' directly - this just
+     * queues a request for an admin to grant (or reject) from the admin
+     * panel's User management screen. Safe to call again after a rejection
+     * (moves 'rejected' back to 'pending'); a no-op while already pending or
+     * once they're already an author/admin.
+     */
+    public function requestAuthor(Request $request)
     {
         $user = $this->requireUser($request);
 
-        if ($user->role === 'reader') {
-            $user->update(['role' => 'author']);
+        if ($user->role === 'reader' && $user->author_request_status !== 'pending') {
+            $user->update([
+                'author_request_status' => 'pending',
+                'author_requested_at' => now(),
+            ]);
         }
 
         return $this->ok($this->userPayload($user));

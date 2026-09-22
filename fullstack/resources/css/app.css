@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+    --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+body {
+    font-family: var(--font-sans);
+}
+
+.prose :where(p) {
+    margin-bottom: 1.25em;
+}

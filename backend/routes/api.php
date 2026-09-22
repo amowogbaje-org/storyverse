@@ -57,7 +57,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/me/notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
         Route::patch('/me/reading-preferences', [AuthController::class, 'updateReadingPreferences']);
         Route::patch('/me/password', [AuthController::class, 'updatePassword']);
-        Route::post('/me/become-author', [AuthController::class, 'becomeAuthor']);
+        Route::post('/me/request-author', [AuthController::class, 'requestAuthor']);
         Route::patch('/me/country', [AuthController::class, 'updateCountry']);
 
         Route::post('/stories/{slug}/like', [InteractionController::class, 'like']);
@@ -164,6 +164,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/payouts', [\App\Http\Controllers\Api\PayoutController::class, 'index']);
         Route::post('/payouts/{id}/mark-paid', [\App\Http\Controllers\Api\PayoutController::class, 'markPaid']);
         Route::post('/payouts/{id}/send', [\App\Http\Controllers\Api\PayoutController::class, 'send']);
+
+        // Who gets to publish is a platform decision - admin-only, not the
+        // looser author_or_admin group used elsewhere in this file.
+        Route::get('/users', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'index']);
+        Route::post('/users/{id}/grant-author', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'grantAuthor']);
+        Route::post('/users/{id}/reject-author-request', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'rejectAuthorRequest']);
+        Route::post('/users/{id}/revoke-author', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'revokeAuthor']);
     });
 
     // Content management panel - authors manage their own stories, admins manage anyone's

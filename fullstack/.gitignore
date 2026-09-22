@@ -1,0 +1,17 @@
+/vendor
+/node_modules
+/public/build
+/public/storage
+/storage/*.key
+/storage/app/public/*
+!/storage/app/public/.gitkeep
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+.env
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+.vscode
+.idea

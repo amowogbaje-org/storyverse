@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
 import Container from "../components/common/Container";
@@ -30,7 +30,6 @@ const NOTIFICATION_TYPES = [
 
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
-  const navigate = useNavigate();
   const { data: currenciesData } = useCurrencies();
   const currencies = currenciesData?.data ?? [];
   const [displayName, setDisplayName] = useState("");
@@ -147,12 +146,11 @@ export default function ProfilePage() {
     setReadingTime(user.preferred_reading_time ? user.preferred_reading_time.slice(0, 5) : "");
   }, [user]);
 
-  async function becomeAuthor() {
+  async function requestAuthor() {
     setBecomingAuthor(true);
     try {
-      await api.post("/me/become-author");
+      await api.post("/me/request-author");
       await refresh();
-      navigate("/admin");
     } finally {
       setBecomingAuthor(false);
     }
@@ -357,21 +355,43 @@ export default function ProfilePage() {
 
       {(user.role === "author" || user.role === "admin") && <PayoutAccountSettings />}
 
-      {/* {user.role === "reader" && (
+      {user.role === "reader" && (
         <div className="mt-6 rounded-card border border-gold-500/40 bg-gold-400/10 p-4">
           <p className="text-sm font-medium text-ink-950">Want to publish your own stories?</p>
           <p className="mt-1 text-xs text-ink-600">
-            Switch to an author account to create pen names, write stories and episodes,
-            and see your stats and earnings.
+            Request an author account to create pen names, write stories and episodes, and see your stats and
+            earnings. An admin reviews every request before it's granted.
           </p>
-          <button
-            onClick={becomeAuthor} disabled={becomingAuthor}
-            className="mt-3 rounded-full bg-gold-500 px-4 py-1.5 text-sm font-semibold text-ink-950 disabled:opacity-50"
-          >
-            {becomingAuthor ? "Switching…" : "Become an author"}
-          </button>
+
+          {user.author_request_status === "pending" && (
+            <p className="mt-3 text-xs font-medium text-ink-700">
+              Request sent{user.author_requested_at ? ` on ${new Date(user.author_requested_at).toLocaleDateString()}` : ""}
+              — waiting on an admin to review it.
+            </p>
+          )}
+
+          {user.author_request_status === "rejected" && (
+            <>
+              <p className="mt-3 text-xs text-ribbon-600">Your last request wasn't approved.</p>
+              <button
+                onClick={requestAuthor} disabled={becomingAuthor}
+                className="mt-2 rounded-full bg-gold-500 px-4 py-1.5 text-sm font-semibold text-ink-950 disabled:opacity-50"
+              >
+                {becomingAuthor ? "Sending…" : "Request again"}
+              </button>
+            </>
+          )}
+
+          {(!user.author_request_status || user.author_request_status === "none") && (
+            <button
+              onClick={requestAuthor} disabled={becomingAuthor}
+              className="mt-3 rounded-full bg-gold-500 px-4 py-1.5 text-sm font-semibold text-ink-950 disabled:opacity-50"
+            >
+              {becomingAuthor ? "Sending…" : "Request author access"}
+            </button>
+          )}
         </div>
-      )} */}
+      )}
     </Container>
   );
 }
