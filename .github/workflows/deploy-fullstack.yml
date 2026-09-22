@@ -70,7 +70,7 @@ jobs:
       - name: Test SSH connection
         env:
           HOST: ${{ vars.HOST }}
-          USERNAME: ${{ vars.USER }}
+          USERNAME: ${{ vars.USERNAME }}
           PORT: ${{ vars.PORT }}
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
