@@ -3,7 +3,7 @@ name: Deploy fullstack to storyverse.amowogbaje.com
 on:
   push:
     branches:
-      - main
+      - fullstack-main
     paths:
       - 'fullstack/**'
       - '.github/workflows/deploy-fullstack.yml'
@@ -72,7 +72,7 @@ jobs:
           HOST: ${{ vars.HOST }}
           USERNAME: ${{ vars.USERNAME }}
           PORT: ${{ vars.PORT }}
-          REMOTE_PATH: ${{ vars.FRONTEND_URL }}
+          REMOTE_PATH: ${{ vars.FULLSTACK_URL }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
         run: |
@@ -101,7 +101,7 @@ jobs:
           port: ${{ vars.PORT }}
 
           script: |
-            cd ${{ vars.FRONTEND_URL }}
+            cd ${{ vars.FULLSTACK_URL }}
 
             # Rebuild Laravel package discovery.
             php artisan package:discover --ansi
