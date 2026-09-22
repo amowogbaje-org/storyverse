@@ -1,100 +1,125 @@
 name: Deploy fullstack to storyverse.amowogbaje.com
 
 on:
-push:
-branches: [main]
-paths:
-- 'fullstack/**'
-- '.github/workflows/deploy-fullstack.yml'
-workflow_dispatch: {}
+  push:
+    branches:
+      - main
+    paths:
+      - 'fullstack/**'
+      - '.github/workflows/deploy-fullstack.yml'
+  workflow_dispatch:
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-```
-steps:
-  - name: Check out the repository
-    uses: actions/checkout@v4
+    steps:
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-  - name: Set up PHP
-    uses: shivammathur/setup-php@v2
-    with:
-      php-version: '8.3'
-      tools: composer:v2
+      # --------------------------------------------------
+      # PHP
+      # --------------------------------------------------
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
 
-  - name: Install PHP dependencies
-    working-directory: fullstack
-    run: composer install --no-dev --optimize-autoloader --no-interaction
+      - name: Install Composer dependencies
+        working-directory: fullstack
+        run: |
+          composer install \
+            --no-dev \
+            --optimize-autoloader \
+            --no-interaction
 
-  - name: Set up Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: '22'
-      cache: 'npm'
-      cache-dependency-path: fullstack/package-lock.json
+      # --------------------------------------------------
+      # Node.js
+      # --------------------------------------------------
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: fullstack/package-lock.json
 
-  - name: Install Node dependencies and build assets
-    working-directory: fullstack
-    run: |
-      npm ci
-      npm run build
+      - name: Install Node dependencies and build assets
+        working-directory: fullstack
+        run: |
+          npm ci
+          npm run build
 
-  - name: Strip dev-only files before upload
-    working-directory: fullstack
-    run: |
-      rm -rf node_modules tests .git
-      rm -f .env.cpanel.example
+      # --------------------------------------------------
+      # Remove files that should never be deployed
+      # --------------------------------------------------
+      - name: Strip dev-only files before upload
+        working-directory: fullstack
+        run: |
+          rm -rf node_modules
+          rm -rf tests
+          rm -rf .git
+          rm -f .env.cpanel.example
 
-  - name: Deploy application
-    env:
-      host: ${{ vars.HOST }}
-      username: ${{ vars.USER }}
-      key: ${{ secrets.SSH_PRIVATE_KEY }}
-      port: ${{ vars.PORT }}
-      remote_path: ${{ vars.FRONTEND_URL }}
-    run: |
-      echo "$key" > /tmp/private_key
-      chmod 600 /tmp/private_key
+      # --------------------------------------------------
+      # Deploy using rsync + SSH
+      # --------------------------------------------------
+      - name: Deploy application
+        env:
+          HOST: ${{ vars.HOST }}
+          USERNAME: ${{ vars.USER }}
+          PORT: ${{ vars.PORT }}
+          REMOTE_PATH: ${{ vars.FRONTEND_URL }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      rsync -avz \
-        -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no -p $port" \
-        --exclude='.env' \
-        --exclude='storage/' \
-        --exclude='public/storage' \
-        --exclude='.git' \
-        --delete \
-        fullstack/ \
-        "$username@$host:$remote_path"
+        run: |
+          echo "$SSH_KEY" > /tmp/private_key
+          chmod 600 /tmp/private_key
 
-  - name: Run post-deploy commands on server
-    uses: appleboy/ssh-action@v1.0.3
-    with:
-      host: ${{ vars.HOST }}
-      username: ${{ vars.USER }}
-      key: ${{ secrets.SSH_PRIVATE_KEY }}
-      port: ${{ vars.PORT }}
-      script: |
-        cd ${{ vars.FRONTEND_URL }}
+          rsync -avz \
+            -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no -p $PORT" \
+            --exclude='.env' \
+            --exclude='.git' \
+            --exclude='storage/' \
+            --exclude='public/storage' \
+            --delete \
+            fullstack/ \
+            "$USERNAME@$HOST:$REMOTE_PATH"
 
-        # Rebuild Laravel package discovery on the server.
-        php artisan package:discover --ansi
+      # --------------------------------------------------
+      # Run Laravel commands on the production server
+      # --------------------------------------------------
+      - name: Run post-deploy commands on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.HOST }}
+          username: ${{ vars.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.PORT }}
 
-        # Clear stale cached configuration and application cache.
-        php artisan config:clear
-        php artisan cache:clear
+          script: |
+            cd ${{ vars.FRONTEND_URL }}
 
-        # Run database migrations.
-        php artisan migrate --force
+            # Rebuild Laravel package discovery.
+            php artisan package:discover --ansi
 
-        # Rebuild production caches.
-        php artisan config:cache
-        php artisan route:cache
-        php artisan view:cache
+            # Clear stale configuration and application cache.
+            php artisan config:clear
+            php artisan cache:clear
 
-        # Ensure storage directories exist.
-        mkdir -p storage/app/resumes
+            # Run database migrations.
+            php artisan migrate --force
 
-        # Create the public storage symlink if needed.
-        php artisan storage:link || true
-```
+            # Rebuild production caches.
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Ensure application storage directories exist.
+            mkdir -p storage/app/resumes
+
+            # Create the public storage symlink if it does not exist.
+            php artisan storage:link || true
