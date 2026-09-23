@@ -37,6 +37,11 @@ export default function AdminStoryEditorPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [coverImageThumbUrl, setCoverImageThumbUrl] = useState("");
+  // Tracks whether the cover was actually touched this session, as opposed
+  // to just being the value loaded from the story - see saveDetails()'s
+  // comment on why this matters for not clobbering an existing thumb.
+  const [coverTouched, setCoverTouched] = useState(false);
   const [coverMode, setCoverMode] = useState("url"); // "url" | "upload"
   const [coverError, setCoverError] = useState(null);
   const [categoryIds, setCategoryIds] = useState([]);
@@ -65,6 +70,14 @@ export default function AdminStoryEditorPage() {
       setTitle(story.title);
       setDescription(story.description);
       setCoverImageUrl(story.cover_image_url ?? "");
+      // Only meaningful as "the thumb that goes with the current
+      // cover_image_url" - StoryCardPresenter already falls back to the full
+      // image server-side if this is empty, so leaving it blank here for an
+      // existing story (rather than guessing at a URL) is the safe default;
+      // it gets filled in for real the next time this cover is re-uploaded,
+      // or by the stories:backfill-cover-thumbnails command.
+      setCoverImageThumbUrl("");
+      setCoverTouched(false);
       setCategoryIds((story.categories ?? []).map((c) => c.id));
       setGenreIds((story.genres ?? []).map((g) => g.id));
       setAccessType(story.access_type);
@@ -84,7 +97,19 @@ export default function AdminStoryEditorPage() {
       return;
     }
 
-    updateStory.mutate({ title, description, cover_image_url: coverImageUrl, category_ids: categoryIds, genre_ids: genreIds });
+    updateStory.mutate({
+      title,
+      description,
+      cover_image_url: coverImageUrl,
+      // Only sent when the cover was actually touched this session - see
+      // coverTouched's declaration. Otherwise the field is omitted entirely
+      // (not sent as null), so the backend's 'sometimes' validation rule
+      // leaves whatever thumb is already stored alone rather than wiping it
+      // just because the title got edited.
+      ...(coverTouched ? { cover_image_thumb_url: coverImageThumbUrl || null } : {}),
+      category_ids: categoryIds,
+      genre_ids: genreIds,
+    });
   }
 
   function saveAccessAndPricing(e) {
@@ -117,6 +142,8 @@ export default function AdminStoryEditorPage() {
       // Fills the field but doesn't save on its own - press "Save details" to
       // actually persist it to the story, same as editing the URL by hand.
       setCoverImageUrl(data.data.url);
+      setCoverImageThumbUrl(data.data.thumb_url);
+      setCoverTouched(true);
     } catch (err) {
       setCoverError(err.response?.data?.error?.message || "Couldn't upload that image. Try a JPG, PNG, or WebP under 8MB.");
     } finally {
@@ -227,7 +254,15 @@ export default function AdminStoryEditorPage() {
               {coverMode === "url" ? (
                 <input
                   value={coverImageUrl}
-                  onChange={(e) => setCoverImageUrl(e.target.value)}
+                  onChange={(e) => {
+                    setCoverImageUrl(e.target.value);
+                    // A pasted URL has no generated thumbnail to go with it -
+                    // clearing this (and marking touched, so saveDetails
+                    // actually sends the null) stops a stale thumb from an
+                    // earlier upload being left paired with this new image.
+                    setCoverImageThumbUrl("");
+                    setCoverTouched(true);
+                  }}
                   placeholder="https://…"
                   className="w-full rounded-card border border-ink-950/15 bg-white px-3 py-2 text-sm"
                 />

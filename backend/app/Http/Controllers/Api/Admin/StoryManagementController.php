@@ -45,6 +45,7 @@ class StoryManagementController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
             'cover_image_url' => ['required', 'string', 'max:2048'],
+            'cover_image_thumb_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'access_type' => ['required', 'in:free,premium'],
             ...$this->pricesValidationRules(),
         ]);
@@ -82,6 +83,15 @@ class StoryManagementController extends Controller
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['sometimes', 'string', 'max:5000'],
             'cover_image_url' => ['sometimes', 'string', 'max:2048'],
+            // 'sometimes' (not 'required') so a request that doesn't touch
+            // the cover at all (e.g. just editing the title) doesn't need to
+            // resend it - but the frontend always sends this alongside
+            // cover_image_url whenever the cover itself changes (explicitly
+            // null for the "paste a URL" path, which has no generated
+            // thumbnail), so a stale thumb from a previous image is never
+            // left paired with a new full image. See AdminStoryEditorPage's
+            // saveDetails().
+            'cover_image_thumb_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'access_type' => ['sometimes', 'in:free,premium'],
             'is_completed' => ['sometimes', 'boolean'],
             ...$this->pricesValidationRules(),

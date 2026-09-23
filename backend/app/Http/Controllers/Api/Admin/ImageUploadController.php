@@ -24,9 +24,20 @@ class ImageUploadController extends Controller
             return $this->error('invalid_image', $e->getMessage(), 422);
         }
 
-        $filename = 'covers/'.Str::uuid().'.'.$optimized['extension'];
-        Storage::disk('public')->put($filename, $optimized['contents']);
+        $id = Str::uuid();
+        $fullPath = "covers/{$id}.".$optimized['full']['extension'];
+        $thumbPath = "covers/{$id}-thumb.".$optimized['thumb']['extension'];
 
-        return $this->ok(['url' => Storage::disk('public')->url($filename)], 201);
+        Storage::disk('public')->put($fullPath, $optimized['full']['contents']);
+        Storage::disk('public')->put($thumbPath, $optimized['thumb']['contents']);
+
+        return $this->ok([
+            'url' => Storage::disk('public')->url($fullPath),
+            // See StoryCardPresenter::card()'s fallback - a story saved
+            // without going through this endpoint (the admin's "paste a URL"
+            // option) simply won't have a thumb_url, and grid cards fall
+            // back to the full image rather than breaking.
+            'thumb_url' => Storage::disk('public')->url($thumbPath),
+        ], 201);
     }
 }

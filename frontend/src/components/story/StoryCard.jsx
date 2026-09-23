@@ -20,6 +20,10 @@ function AccessBadge({ story }) {
 export default function StoryCard({ story, view = "grid" }) {
   const progress = story.reader_progress_percent ?? 0;
   const queryClient = useQueryClient();
+  // Falls back to the full cover for any story predating the thumbnail
+  // column - see StoryCardPresenter::card()'s comment; this mirrors that
+  // same fallback so an old story's card never renders a broken image.
+  const cardCover = story.cover_image_thumb_url || story.cover_image_url || FALLBACK_COVER;
 
   // See usePrefetchOnIntent's docblock - StoryCard is the single most-clicked
   // link on the homepage and browse grid, so this is where the "chunk fetch,
@@ -41,7 +45,7 @@ export default function StoryCard({ story, view = "grid" }) {
         {...prefetch}
       >
         <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-[6px] bg-ink-900">
-          <img src={story.cover_image_url || FALLBACK_COVER} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img src={cardCover} alt="" className="h-full w-full object-cover" loading="lazy" />
           <AccessBadge story={story} />
         </div>
         <div className="min-w-0 flex-1">
@@ -64,7 +68,7 @@ export default function StoryCard({ story, view = "grid" }) {
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink-900">
         <img
-          src={story.cover_image_url || FALLBACK_COVER}
+          src={cardCover}
           alt={story.title}
           loading="lazy"
           decoding="async"

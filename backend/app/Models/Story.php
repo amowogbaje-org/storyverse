@@ -11,7 +11,7 @@ class Story extends Model
 {
     protected $fillable = [
         'pen_name_id', 'title', 'slug', 'description',
-        'cover_image_url', 'status', 'access_type', 'is_completed',
+        'cover_image_url', 'cover_image_thumb_url', 'status', 'access_type', 'is_completed',
         'episodes_count', 'views_count', 'likes_count', 'bookmarks_count',
         'comments_count', 'shares_count', 'published_at',
     ];

@@ -36,6 +36,12 @@ class StoryCardPresenter
             'published_at' => $story->published_at,
             'description' => $story->description,
             'cover_image_url' => $story->cover_image_url,
+            // Falls back to the full image for any story that predates this
+            // column, or was saved via the admin's "paste a URL" path (which
+            // has no generated thumbnail) - see the migration's docblock and
+            // the stories:backfill-cover-thumbnails command for closing that
+            // gap for existing stories.
+            'cover_image_thumb_url' => $story->cover_image_thumb_url ?: $story->cover_image_url,
             'access_type' => $story->access_type,
             'is_completed' => $story->is_completed,
             'views_count' => $story->views_count,
