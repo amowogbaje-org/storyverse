@@ -43,9 +43,9 @@ abstract class Controller
         ]);
     }
 
-    protected function error(string $code, string $message, int $status = 400)
+    protected function error(string $code, string $message, int $status = 400, array $extra = [])
     {
-        return response()->json(['error' => ['code' => $code, 'message' => $message]], $status);
+        return response()->json(['error' => ['code' => $code, 'message' => $message], ...$extra], $status);
     }
 
     /**

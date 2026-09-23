@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useNewReleases, usePopularStories, useGenres } from "../hooks/queries/useStories";
+import { useHomeData } from "../hooks/queries/useStories";
 import { useAuth } from "../context/AuthContext";
 import StoryCard from "../components/story/StoryCard";
 import SectionHeader from "../components/common/SectionHeader";
@@ -61,13 +61,9 @@ function genreEmoji(name = "") {
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
-  const { data: newData, isLoading: newLoading } = useNewReleases();
-  const { data: popularData, isLoading: popularLoading } = usePopularStories();
-  const { data: genresData } = useGenres();
-
-  const popularStories = popularData?.data ?? [];
-  const newStories = newData?.data ?? [];
-  const genres = genresData?.data ?? [];
+  const { newReleases: newStories, popular: popularStories, genres, isLoading } = useHomeData(isAuthenticated);
+  const newLoading = isLoading;
+  const popularLoading = isLoading;
   // No dedicated "featured story" endpoint exists yet, so the top trending
   // story stands in as the featured pick - it's already the platform's best
   // signal of "people are reading this right now".

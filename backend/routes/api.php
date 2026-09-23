@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommentController;
+use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\EpisodeController;
 use App\Http\Controllers\Api\Integrations\CraftProfessorExportController;
 use App\Http\Controllers\Api\InteractionController;
@@ -118,6 +119,11 @@ Route::prefix('v1')->group(function () {
             ]);
         });
 
+        // Combined homepage payload - see HomeController's docblock. Kept
+        // alongside the individual endpoints above (still used by /browse,
+        // admin pages, etc.) rather than replacing them.
+        Route::get('/home', [HomeController::class, 'index']);
+
         Route::get('/stories', [StoryController::class, 'index']);
         Route::get('/stories/new-releases', [StoryController::class, 'newReleases']);
         Route::get('/stories/popular', [StoryController::class, 'popular']);
@@ -171,6 +177,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/users/{id}/grant-author', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'grantAuthor']);
         Route::post('/users/{id}/reject-author-request', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'rejectAuthorRequest']);
         Route::post('/users/{id}/revoke-author', [\App\Http\Controllers\Api\Admin\UserManagementController::class, 'revokeAuthor']);
+
+        // Downloadable Telescope export - see TelescopeExportController's
+        // docblock for why this exists alongside /telescope itself.
+        Route::get('/telescope/export', [\App\Http\Controllers\Api\Admin\TelescopeExportController::class, 'download']);
     });
 
     // Content management panel - authors manage their own stories, admins manage anyone's

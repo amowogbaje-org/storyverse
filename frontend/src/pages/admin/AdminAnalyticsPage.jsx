@@ -9,6 +9,7 @@ import {
   useStoryDropoff,
 } from "../../hooks/queries/useAdmin";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import TelescopeExportCard from "../../components/admin/TelescopeExportCard";
 
 const METRICS = [
   { value: "reads", label: "Reads" },
@@ -213,6 +214,8 @@ export default function AdminAnalyticsPage() {
           )}
         </div>
       </div>
+
+      <TelescopeExportCard />
     </div>
   );
 }

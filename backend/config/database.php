@@ -34,7 +34,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            'engine' => env('ENGINE_DB', null),
         ],
 
         'pgsql' => [

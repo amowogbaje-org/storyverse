@@ -125,3 +125,32 @@ export function useAdminUsers(filters = {}, enabled) {
     enabled,
   });
 }
+
+/**
+ * Not a useQuery hook - a plain async function the caller invokes on click.
+ * A normal <a href="/admin/telescope/export"> can't work here: the endpoint
+ * is behind JWT auth, and a bare browser navigation sends no Authorization
+ * header (no cookie/session in this app - see MONITORING.md). Fetching the
+ * file as a blob through the authenticated `api` client and handing the
+ * browser an object URL is what actually gets an authenticated file to
+ * download.
+ */
+export async function downloadTelescopeExport({ type, hours } = {}) {
+  const response = await api.get("/admin/telescope/export", {
+    params: { type: type || undefined, hours: hours || undefined },
+    responseType: "blob",
+  });
+
+  const disposition = response.headers["content-disposition"] || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] || "telescope-export.csv";
+
+  const url = window.URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}

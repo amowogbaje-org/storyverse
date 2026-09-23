@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useEpisode, useStory } from "../hooks/queries/useStories";
+import { useEpisode } from "../hooks/queries/useStories";
 import { useRecordProgress } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
@@ -19,15 +19,27 @@ export default function EpisodeReaderPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const limits = useAccessLimits();
-  const { data: storyData } = useStory(slug);
-  const { data: episodeData, isLoading } = useEpisode(slug, episodeNumber);
+  // The episode response now embeds everything this page needs about the
+  // story (title/description/cover/access_type/episode numbers for prev-
+  // next) - see EpisodeController::show's docblock. That replaces what used
+  // to be a second GET /stories/{slug} call here. StoryDetailPage still
+  // fetches the story on its own via useStory() - it needs the full
+  // presenter payload (genres, prices, likes, per-episode lock reasons) that
+  // this lighter reader-page shape deliberately leaves out, so the two
+  // caches are kept separate rather than one seeding the other.
+  const { data: episodeData, error: episodeError, isLoading } = useEpisode(slug, episodeNumber);
   const recordProgress = useRecordProgress(slug, episodeNumber);
   const contentRef = useRef(null);
   const lastSent = useRef(0);
   const [autoAdvance, setAutoAdvance] = useState(false);
 
-  const story = storyData?.data;
   const episode = episodeData?.data;
+  // On a locked episode the request 403s (no `episode`), but the backend
+  // still sends `story` alongside the error - see EpisodeController::show's
+  // comment on that error() call. Falling back to it here is what lets the
+  // upsell banner below render immediately instead of the page getting
+  // stuck on the loading spinner (story would otherwise never arrive).
+  const story = episode?.story ?? episodeError?.response?.data?.story;
 
   const num = Number(episodeNumber);
   const idx = (story?.episodes ?? []).findIndex((e) => e.episode_number === num);

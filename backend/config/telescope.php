@@ -97,9 +97,13 @@ return [
         // Swapped in place of Telescope's default Authorize middleware - see
         // App\Http\Middleware\TelescopeAccessKey's docblock for why (no
         // session-authenticated web-guard user exists in this app; auth is
-        // JWT-only). 'throttle' caps key-guessing attempts against the
-        // access key below.
-        'throttle:20,1',
+        // JWT-only). 'throttle:telescope-key' (defined in
+        // AppServiceProvider::defineTelescopeKeyRateLimiter) caps
+        // key-guessing attempts the same way a flat 'throttle:20,1' used to -
+        // it just no longer also throttles an already-unlocked dashboard's
+        // own polling, which was causing "Telescope stopped listening for
+        // new entries" 429s during normal use.
+        'throttle:telescope-key',
         TelescopeAccessKey::class,
     ],
 

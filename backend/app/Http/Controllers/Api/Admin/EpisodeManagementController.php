@@ -112,6 +112,9 @@ class EpisodeManagementController extends Controller
         $episode->update(['status' => 'published', 'published_at' => $episode->published_at ?? now()]);
 
         \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
+        // Publishing changes the episode-number list every guest-preview
+        // cache entry embeds - see forgetGuestPreviewCaches' docblock.
+        \App\Http\Controllers\Api\EpisodeController::forgetGuestPreviewCaches($story->slug);
 
         return $this->ok($episode);
     }
@@ -124,6 +127,7 @@ class EpisodeManagementController extends Controller
         $story->decrement('episodes_count');
 
         \App\Http\Controllers\Api\EpisodeController::forgetPreviewCache($story->slug, $episode->episode_number);
+        \App\Http\Controllers\Api\EpisodeController::forgetGuestPreviewCaches($story->slug);
 
         return $this->ok(['deleted' => true]);
     }

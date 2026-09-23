@@ -102,6 +102,11 @@ class StoryManagementController extends Controller
         }
 
         \App\Support\HomeCache::forgetHomepage();
+        // title/description/cover_image_url/access_type are embedded in
+        // EpisodeController's cached guest-preview payload too (see its
+        // loadEpisodePayload) - same staleness concern as
+        // EpisodeManagementController::publish/destroy.
+        \App\Http\Controllers\Api\EpisodeController::forgetGuestPreviewCaches($story->slug);
 
         return $this->ok($story->fresh(['penName', 'categories', 'genres', 'prices']));
     }

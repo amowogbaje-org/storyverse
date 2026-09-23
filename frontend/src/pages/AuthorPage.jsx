@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useAuthor, useAuthorStories } from "../hooks/queries/useAuthor";
+import { useAuthor } from "../hooks/queries/useAuthor";
 import StoryCard from "../components/story/StoryCard";
 import TipWidget from "../components/story/TipWidget";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -9,11 +9,10 @@ import Container from "../components/common/Container";
 export default function AuthorPage() {
   const { slug } = useParams();
   const { data: authorData, isLoading: authorLoading } = useAuthor(slug);
-  const { data: storiesData, isLoading: storiesLoading } = useAuthorStories(slug);
 
   if (authorLoading) return <LoadingSpinner label="Loading author" />;
   const author = authorData?.data;
-  const stories = storiesData?.data ?? [];
+  const stories = author?.stories?.data ?? [];
   if (!author) return null;
 
   return (
@@ -33,9 +32,7 @@ export default function AuthorPage() {
       </div>
 
       <h2 className="mb-3 mt-8 font-display text-lg font-semibold text-ink-950">Stories</h2>
-      {storiesLoading ? (
-        <LoadingSpinner />
-      ) : stories.length ? (
+      {stories.length ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {stories.map((s) => <StoryCard key={s.id} story={s} />)}
         </div>

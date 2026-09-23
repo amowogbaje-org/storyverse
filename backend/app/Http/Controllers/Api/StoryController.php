@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\RecordsStoryViews;
 use App\Models\ReadingProgress;
 use App\Models\Story;
-use App\Models\StoryView;
 use App\Services\StoryAccessService;
 use App\Support\HomeCache;
 use App\Support\StoryCardPresenter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 class StoryController extends Controller
 {
+    use RecordsStoryViews;
+
     public function __construct(private StoryAccessService $access) {}
 
     public function index(Request $request)
@@ -102,16 +103,8 @@ class StoryController extends Controller
         $user = $this->currentUser($request);
 
         // A view only counts once per visitor per hour, not on every reload/
-        // re-render - see shouldCountView() below for why and how.
-        if ($this->shouldCountView($request, $story, $user)) {
-            StoryView::create([
-                'user_id' => $user?->id,
-                'story_id' => $story->id,
-                'session_hash' => $this->sessionHash($request),
-                'viewed_at' => now(),
-            ]);
-            $story->increment('views_count');
-        }
+        // re-render - see RecordsStoryViews::shouldCountView() for why and how.
+        $this->recordStoryView($request, $story, $user);
 
         $limit = $this->access->accessibleEpisodeLimit($story, $user);
 
@@ -143,46 +136,5 @@ class StoryController extends Controller
             'genres' => $story->genres->map(fn ($g) => ['slug' => $g->slug, 'name' => $g->name]),
             'episodes' => $episodes,
         ]);
-    }
-
-    /**
-     * A "view" only counts once per visitor per story per hour, not on every
-     * page load/reload/re-render - refreshing the tab five times isn't five
-     * reads. Visitor = the logged-in user's id, or (for guests) the same
-     * per-browser session id already used for StoryView.session_hash - stable
-     * across reloads for one visitor, unlike IP+UA which can collide (shared
-     * office/mobile networks) or split (VPN, IP rotation).
-     *
-     * This alone gets you ~95% of what a Redis "seen" key + TTL buys you,
-     * using the same portable Cache facade the rest of the app's caching goes
-     * through (see HomeCache/EpisodeController) - identical behavior whether
-     * CACHE_STORE is redis (Docker/cloud) or file/database (cPanel).
-     *
-     * Deliberately NOT also batching the DB write itself (accumulate a
-     * counter in cache, flush to the `stories` row once a minute via a
-     * scheduled job): dedup already cuts writes from "every reload" down to
-     * "at most once per visitor per story per hour", which is the actual fix
-     * for the reported problem, and it's a single indexed UPDATE + one INSERT
-     * per unique view - trivial for Postgres/MySQL at this traffic level.
-     * Batching on top would mainly help if writes became the bottleneck at
-     * much higher scale, but it trades that for real complexity: an
-     * "increment counter, then atomically read-and-reset it" step, which
-     * Redis does natively (INCR + GETSET) but file/database cache stores
-     * can't guarantee atomically - a flush racing a concurrent increment can
-     * lose counts. Worth revisiting if `stories` writes ever show up as a
-     * real bottleneck, but not before.
-     */
-    private function shouldCountView(Request $request, Story $story, ?\App\Models\User $user): bool
-    {
-        $visitor = $user ? "user:{$user->id}" : 'guest:'.$this->sessionHash($request);
-        $key = "story-view-seen:{$story->id}:{$visitor}";
-
-        if (Cache::has($key)) {
-            return false;
-        }
-
-        Cache::put($key, true, now()->addHour());
-
-        return true;
     }
 }

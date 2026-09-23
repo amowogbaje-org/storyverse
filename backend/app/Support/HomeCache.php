@@ -21,6 +21,7 @@ class HomeCache
 
     public const NEW_RELEASES_KEY = 'home:new-releases';
     public const POPULAR_KEY = 'home:popular';
+    public const GENRES_KEY = 'home:genres';
 
     public static function remember(string $key, \Closure $callback)
     {
@@ -39,5 +40,6 @@ class HomeCache
     {
         Cache::forget(self::NEW_RELEASES_KEY);
         Cache::forget(self::POPULAR_KEY);
+        Cache::forget(self::GENRES_KEY);
     }
 }

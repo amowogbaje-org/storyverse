@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\RecordsStoryViews;
 use App\Models\Episode;
 use App\Models\Story;
 use App\Services\StoryAccessService;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class EpisodeController extends Controller
 {
+    use RecordsStoryViews;
+
     private const PREVIEW_CACHE_TTL_MINUTES = 30;
 
     public function __construct(private StoryAccessService $access) {}
@@ -55,6 +58,14 @@ class EpisodeController extends Controller
         $episode = Episode::make($payload['episode']);
         $episode->id = $payload['episode']['id'];
 
+        // Counts as a story view the same way visiting the story detail page
+        // does (they used to be two separate requests hitting two separate
+        // controllers that each recorded a view; now it's one request, one
+        // recording). Deliberately BEFORE the lock check below, matching the
+        // old behavior: opening a locked episode's URL directly still counted
+        // as having viewed the story, only the episode content itself 403s.
+        $this->recordStoryView($request, $story, $user);
+
         // See InteractionController::updateProgress for why this is computed
         // once and reused, rather than calling canAccessEpisode() then
         // lockReason() separately (each re-runs the same real queries).
@@ -62,7 +73,17 @@ class EpisodeController extends Controller
         $lockReason = $this->access->lockReasonForLimit($limit, $episode, $user);
 
         if ($lockReason !== null) {
-            return $this->error($lockReason, 'This episode is locked.', 403);
+            // `story` is still included here (title/description/cover/
+            // access_type/episode numbers) even though the episode itself is
+            // locked - EpisodeReaderPage's client-side gate (utils/access.js)
+            // decides whether to show the reader or the upsell banner purely
+            // from `story`, without waiting on episode content to resolve.
+            // Before the story fetch was folded into this endpoint, that data
+            // came from an independent, always-successful GET /stories/{slug}
+            // call regardless of this episode's own lock state - omitting it
+            // here would leave the reader page stuck on its loading spinner
+            // for any locked episode.
+            return $this->error($lockReason, 'This episode is locked.', 403, ['story' => $payload['story']]);
         }
 
         if ($user) {
@@ -86,7 +107,15 @@ class EpisodeController extends Controller
             'content' => $payload['episode']['content'],
             'word_count' => $payload['episode']['word_count'],
             'progress_percent' => $progress,
-            'story' => ['slug' => $payload['story']['slug'], 'title' => $payload['story']['title']],
+            // Replaces the reader page's separate GET /stories/{slug} call.
+            // Only what EpisodeReaderPage actually reads off `story` -
+            // title/description/cover_image_url for the header + SEO tags,
+            // access_type (client-side gating math in utils/access.js), and
+            // episodes[].episode_number for prev/next nav. None of this is
+            // per-user, so it lives in the same cached payload as the episode
+            // itself (see loadEpisodePayload) rather than being computed
+            // fresh on every request.
+            'story' => $payload['story'],
         ]);
     }
 
@@ -110,7 +139,19 @@ class EpisodeController extends Controller
                 'id' => $story->id,
                 'slug' => $story->slug,
                 'title' => $story->title,
+                'description' => $story->description,
+                'cover_image_url' => $story->cover_image_url,
                 'access_type' => $story->access_type,
+                // Numbers only, in order - StoryDetailPage's separate
+                // GET /stories/{slug} still returns the full per-episode
+                // locked/lock_reason/reader_progress_percent breakdown for
+                // its own episode list UI; this page only ever needed the
+                // numbers for prev/next links.
+                'episodes' => $story->publishedEpisodes()
+                    ->orderBy('episode_number')
+                    ->pluck('episode_number')
+                    ->map(fn ($n) => ['episode_number' => $n])
+                    ->values(),
             ],
             'episode' => [
                 'id' => $episode->id,
@@ -137,5 +178,25 @@ class EpisodeController extends Controller
     public static function forgetPreviewCache(string $slug, int $episodeNumber): void
     {
         Cache::forget("episode-preview:{$slug}:{$episodeNumber}");
+    }
+
+    /**
+     * Publishing or deleting an episode changes the *set* of episode numbers
+     * for the story, which is embedded in every cached guest-preview payload
+     * (see loadEpisodePayload's 'episodes' field, added when the reader
+     * page's separate story call was folded into this one). A plain
+     * forgetPreviewCache($slug, $editedEpisodeNumber) only busts that one
+     * episode's own cache entry, not episodes 1..guestLimit()'s - which is
+     * what a reader sitting on episode 1 actually has cached. Call this too
+     * (in addition to forgetPreviewCache) whenever the episode list changes,
+     * not just its content.
+     */
+    public static function forgetGuestPreviewCaches(string $slug): void
+    {
+        $limit = app(StoryAccessService::class)->guestLimit();
+
+        for ($n = 1; $n <= $limit; $n++) {
+            Cache::forget("episode-preview:{$slug}:{$n}");
+        }
     }
 }

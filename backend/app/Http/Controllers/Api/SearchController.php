@@ -7,6 +7,7 @@ use App\Models\PenName;
 use App\Models\Story;
 use App\Support\StoryCardPresenter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SearchController extends Controller
 {
@@ -24,16 +25,18 @@ class SearchController extends Controller
         // Native (non-AI) search: simple LIKE matching for now. Swap this query for a
         // Scout::search() call once Meilisearch indexing is wired up (composer.json
         // already has laravel/scout + the meilisearch client ready for that).
+        $op = $this->likeOperator();
+
         $stories = Story::where('status', 'published')
-            ->where(function ($query) use ($q) {
-                $query->where('title', 'ilike', "%{$q}%")
-                    ->orWhere('description', 'ilike', "%{$q}%");
+            ->where(function ($query) use ($q, $op) {
+                $query->where('title', $op, "%{$q}%")
+                    ->orWhere('description', $op, "%{$q}%");
             })
             ->with(['penName', 'categories'])
             ->limit(20)
             ->get();
 
-        $authors = PenName::where('display_name', 'ilike', "%{$q}%")
+        $authors = PenName::where('display_name', $op, "%{$q}%")
             ->limit(10)
             ->get(['display_name', 'slug']);
 
@@ -107,9 +110,10 @@ class SearchController extends Controller
     private function fallbackToNativeSearch(string $query)
     {
         $user = null; // this path is reached without needing $request again
+        $op = $this->likeOperator();
         $stories = Story::where('status', 'published')
-            ->where(function ($q) use ($query) {
-                $q->where('title', 'ilike', "%{$query}%")->orWhere('description', 'ilike', "%{$query}%");
+            ->where(function ($q) use ($query, $op) {
+                $q->where('title', $op, "%{$query}%")->orWhere('description', $op, "%{$query}%");
             })
             ->with(['penName', 'categories'])
             ->limit(10)
@@ -119,5 +123,19 @@ class SearchController extends Controller
             'stories' => $stories->map(fn (Story $s) => StoryCardPresenter::card($s, $user, collect())),
             'source' => 'native_fallback',
         ]);
+    }
+
+    /**
+     * 'ilike' is Postgres-only - MySQL (this app's other supported driver,
+     * see config/database.php's comment on cPanel/shared hosting) has no
+     * ILIKE operator at all and throws a SQL syntax error on it. MySQL's
+     * plain 'like' is already case-insensitive by default (utf8mb4's default
+     * collation, utf8mb4_unicode_ci, is a _ci - case-insensitive - collation,
+     * matching config('database.connections.mysql.collation')), so it needs
+     * no ILIKE equivalent to get the same behavior Postgres needed ILIKE for.
+     */
+    private function likeOperator(): string
+    {
+        return DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }
