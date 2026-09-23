@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import StoryStats from "./StoryStats";
 import ProgressCircle from "./ProgressCircle";
+import { usePrefetchOnIntent } from "../../hooks/usePrefetchOnIntent";
+import api from "../../api/client";
 
 const FALLBACK_COVER =
   "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='420'%3E%3Crect width='300' height='420' fill='%231B1230'/%3E%3C/svg%3E";
@@ -16,12 +19,26 @@ function AccessBadge({ story }) {
 
 export default function StoryCard({ story, view = "grid" }) {
   const progress = story.reader_progress_percent ?? 0;
+  const queryClient = useQueryClient();
+
+  // See usePrefetchOnIntent's docblock - StoryCard is the single most-clicked
+  // link on the homepage and browse grid, so this is where the "chunk fetch,
+  // then API fetch" waterfall shows up most for most visitors.
+  const prefetch = usePrefetchOnIntent({
+    importChunk: () => import("../../pages/StoryDetailPage"),
+    prefetch: () =>
+      queryClient.prefetchQuery({
+        queryKey: ["story", story.slug],
+        queryFn: async () => (await api.get(`/stories/${story.slug}`)).data,
+      }),
+  });
 
   if (view === "list") {
     return (
       <Link
         to={`/stories/${story.slug}`}
         className="flex gap-3 rounded-card border border-ink-950/8 bg-white/60 p-3 shadow-card transition hover:-translate-y-0.5"
+        {...prefetch}
       >
         <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-[6px] bg-ink-900">
           <img src={story.cover_image_url || FALLBACK_COVER} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -43,6 +60,7 @@ export default function StoryCard({ story, view = "grid" }) {
     <Link
       to={`/stories/${story.slug}`}
       className="group flex flex-col overflow-hidden rounded-card border border-ink-950/8 bg-white/60 shadow-card transition hover:-translate-y-0.5"
+      {...prefetch}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink-900">
         <img

@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEpisode } from "../hooks/queries/useStories";
 import { useRecordProgress } from "../hooks/mutations/useInteractions";
 import { useAuth } from "../context/AuthContext";
 import { canAccessEpisode, lockReason } from "../utils/access";
 import { useAccessLimits } from "../hooks/queries/usePlatformStatus";
 import { useReadAloud } from "../hooks/useReadAloud";
+import { usePrefetchOnIntent } from "../hooks/usePrefetchOnIntent";
+import api from "../api/client";
 import UpsellBanner from "../components/reader/UpsellBanner";
 import ReadAloudBar from "../components/reader/ReadAloudBar";
 import RichText from "../components/reader/RichText";
@@ -29,6 +32,7 @@ export default function EpisodeReaderPage() {
   // caches are kept separate rather than one seeding the other.
   const { data: episodeData, error: episodeError, isLoading } = useEpisode(slug, episodeNumber);
   const recordProgress = useRecordProgress(slug, episodeNumber);
+  const queryClient = useQueryClient();
   const contentRef = useRef(null);
   const lastSent = useRef(0);
   const [autoAdvance, setAutoAdvance] = useState(false);
@@ -45,6 +49,31 @@ export default function EpisodeReaderPage() {
   const idx = (story?.episodes ?? []).findIndex((e) => e.episode_number === num);
   const next = story?.episodes?.[idx + 1];
   const prev = story?.episodes?.[idx - 1];
+
+  // Chapter-to-chapter is THE core reading flow, so this is the highest-
+  // value spot for a prefetch: no chunk to fetch (already on this page's
+  // code), just getting the next/prev episode's content already sitting in
+  // cache by the time the reader actually clicks "Next Episode →". Only
+  // bothers prefetching what canAccessEpisode() would actually let them see -
+  // no point warming a request that's just going to 403.
+  const prefetchNext = usePrefetchOnIntent({
+    prefetch: () =>
+      next && canAccessEpisode(story, next, user, limits)
+        ? queryClient.prefetchQuery({
+            queryKey: ["episode", slug, String(next.episode_number)],
+            queryFn: async () => (await api.get(`/stories/${slug}/episodes/${next.episode_number}`)).data,
+          })
+        : Promise.resolve(),
+  });
+  const prefetchPrev = usePrefetchOnIntent({
+    prefetch: () =>
+      prev && canAccessEpisode(story, prev, user, limits)
+        ? queryClient.prefetchQuery({
+            queryKey: ["episode", slug, String(prev.episode_number)],
+            queryFn: async () => (await api.get(`/stories/${slug}/episodes/${prev.episode_number}`)).data,
+          })
+        : Promise.resolve(),
+  });
 
   // "Keep reading" for read-aloud: when the utterance finishes the episode
   // and auto-advance is on, move straight to the next one - but only if the
@@ -171,12 +200,20 @@ export default function EpisodeReaderPage() {
 
       <div className="mt-10 flex items-center justify-between border-t border-ink-950/10 pt-4 text-sm">
         {prev ? (
-          <Link to={`/stories/${slug}/episodes/${prev.episode_number}`} className="text-teal-700 hover:underline">
+          <Link
+            to={`/stories/${slug}/episodes/${prev.episode_number}`}
+            className="text-teal-700 hover:underline"
+            {...prefetchPrev}
+          >
             ← Episode {prev.episode_number}
           </Link>
         ) : <span />}
         {next ? (
-          <Link to={`/stories/${slug}/episodes/${next.episode_number}`} className="font-medium text-teal-700 hover:underline">
+          <Link
+            to={`/stories/${slug}/episodes/${next.episode_number}`}
+            className="font-medium text-teal-700 hover:underline"
+            {...prefetchNext}
+          >
             Episode {next.episode_number} →
           </Link>
         ) : <span className="text-ink-500">End of published episodes</span>}

@@ -5,10 +5,38 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 /**
  * Renders Google's own "Sign in with Google" button via the Google Identity
- * Services script (loaded in index.html). Google draws the button itself
- * into our div — we just hand it a client ID and a callback for the
- * resulting ID token, which we forward to the backend for verification.
+ * Services script. Google draws the button itself into our div — we just
+ * hand it a client ID and a callback for the resulting ID token, which we
+ * forward to the backend for verification.
+ *
+ * The script is loaded here, on demand, rather than as a static <script> tag
+ * in index.html: this component only ever renders on /login and /register,
+ * but a static tag in index.html downloaded and executed Google's script on
+ * every single page - including every episode read, where it's never used.
+ * loadGsiScript() below dedupes so mounting this twice (e.g. both
+ * LoginPage's inline form and a modal) doesn't insert the tag more than once.
  */
+let gsiScriptPromise = null;
+function loadGsiScript() {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (gsiScriptPromise) return gsiScriptPromise;
+
+  gsiScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = () => {
+      gsiScriptPromise = null; // allow a retry on next mount if the network hiccuped
+      reject(new Error("Failed to load Google Identity Services"));
+    };
+    document.head.appendChild(script);
+  });
+
+  return gsiScriptPromise;
+}
+
 export default function GoogleButton({ onError, onSuccess, label = "signin_with" }) {
   const { loginWithGoogle } = useAuth();
   const divRef = useRef(null);
@@ -50,24 +78,13 @@ export default function GoogleButton({ onError, onSuccess, label = "signin_with"
       setReady(true);
     }
 
-    if (window.google?.accounts?.id) {
-      init();
-    } else {
-      // The GSI script (accounts.google.com/gsi/client) is loaded async in index.html;
-      // poll briefly in case this component mounts before it's ready.
-      const interval = setInterval(() => {
-        if (window.google?.accounts?.id) {
-          clearInterval(interval);
-          init();
-        }
-      }, 200);
-      const timeout = setTimeout(() => clearInterval(interval), 8000);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
-    }
+    loadGsiScript()
+      .then(() => { if (!cancelled) init(); })
+      .catch(() => { if (!cancelled) onError?.("Couldn't load Google sign-in. Please try again."); });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loginWithGoogle, onError, onSuccess, label]);
 
   if (!CLIENT_ID) return null;

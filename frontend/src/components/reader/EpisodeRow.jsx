@@ -3,6 +3,9 @@ import { canAccessEpisode, lockReason } from "../../utils/access";
 import { useAuth } from "../../context/AuthContext";
 import { useAccessLimits } from "../../hooks/queries/usePlatformStatus";
 import { loginUrl } from "../../utils/loginUrl";
+import { usePrefetchOnIntent } from "../../hooks/usePrefetchOnIntent";
+import { useQueryClient } from "@tanstack/react-query";
+import api from "../../api/client";
 import ShareMenu from "../story/ShareMenu";
 
 export default function EpisodeRow({ story, episode }) {
@@ -11,6 +14,19 @@ export default function EpisodeRow({ story, episode }) {
   const unlocked = canAccessEpisode(story, episode, user, limits);
   const reason = lockReason(story, episode, user, limits);
   const progress = episode.reader_progress_percent ?? 0;
+  const queryClient = useQueryClient();
+
+  // See usePrefetchOnIntent's docblock - this is what turns "click, then
+  // wait for the reader chunk + episode fetch" into "already loading by the
+  // time you click" for the single most-clicked link on a story page.
+  const prefetch = usePrefetchOnIntent({
+    importChunk: () => import("../../pages/EpisodeReaderPage"),
+    prefetch: () =>
+      queryClient.prefetchQuery({
+        queryKey: ["episode", story.slug, episode.episode_number],
+        queryFn: async () => (await api.get(`/stories/${story.slug}/episodes/${episode.episode_number}`)).data,
+      }),
+  });
 
   const body = (
     <div className="flex items-center gap-3 py-3">
@@ -54,7 +70,11 @@ export default function EpisodeRow({ story, episode }) {
 
   if (unlocked) {
     return (
-      <Link to={`/stories/${story.slug}/episodes/${episode.episode_number}`} className="block px-1 hover:bg-parchment-100 rounded-lg">
+      <Link
+        to={`/stories/${story.slug}/episodes/${episode.episode_number}`}
+        className="block px-1 hover:bg-parchment-100 rounded-lg"
+        {...prefetch}
+      >
         {body}
       </Link>
     );
