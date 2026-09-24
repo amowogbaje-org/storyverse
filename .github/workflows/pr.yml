@@ -2,7 +2,7 @@ name: Storyverse CI
 
 # PR-safe validation: build both halves of the app and confirm migrations
 # run cleanly against a throwaway SQLite DB. Deliberately does NOT run a
-# test suite and does NOT deploy anywhere — no SSH keys or production
+# test suite and does NOT deploy anywhere —no SSH keys or production
 # secrets are touched here, so it's safe to run on every PR (including
 # from forks, if you ever accept those).
 
