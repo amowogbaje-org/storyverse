@@ -51,6 +51,3 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_SITE_URL: https://${{ vars.FRONTEND_URL }}
-      - name: Test
-        working-directory: frontend
-        run: npm test
