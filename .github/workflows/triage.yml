@@ -3,7 +3,7 @@ name: CI Triage Bot
 on:
   workflow_run:
     # List every workflow you want triaged. GitHub requires explicit names here.
-    workflows: ["Deploy Storyverse"]
+    workflows: ["Deploy Storyverse", "Storyverse CI"]
     types: [completed]
 
 permissions:
