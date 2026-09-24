@@ -5,6 +5,7 @@ import Footer from "./components/layout/Footer";
 import MobileTabBar from "./components/layout/MobileTabBar";
 import LoadingSpinner from "./components/common/LoadingSpinner";
 import InstallPrompt from "./components/common/InstallPrompt";
+import UpdateBanner from "./components/common/UpdateBanner";
 import { usePageviewTracking } from "./hooks/usePageviewTracking";
 import { usePushSetup } from "./hooks/usePushSetup";
 import { useReferralCapture } from "./hooks/useReferralCapture";
@@ -93,6 +94,7 @@ export default function App() {
         </Suspense>
       </main>
       <Footer />
+      <UpdateBanner />
       <InstallPrompt />
       <MobileTabBar />
     </div>
