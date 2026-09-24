@@ -7,7 +7,7 @@ export const api = axios.create({
   headers: { Accept: "application/json" },
 });
 
-const TOKEN_KEY = "storyverse_token";
+// const TOKEN_KEY = "storyverse_token";
 const REFRESH_TOKEN_KEY = "storyverse_refresh_token";
 const SESSION_KEY = "storyverse_session_id";
 
